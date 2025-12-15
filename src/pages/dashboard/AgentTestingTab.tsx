@@ -68,6 +68,37 @@ export type AgentTestingTabProps = {
   projectId: string;
 };
 
+// Map timezone IDs to IANA timezone names
+const timezoneMap: Record<string, string> = {
+  nyc: "America/New_York",
+  la: "America/Los_Angeles",
+  london: "Europe/London",
+};
+
+function getCurrentDateTimeString(timeZoneId?: string): string {
+  const tz = timezoneMap[timeZoneId ?? "nyc"] ?? "America/New_York";
+  const now = new Date();
+
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  const formatted = formatter.format(now);
+  const tzName = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    timeZoneName: "short",
+  }).formatToParts(now).find(p => p.type === "timeZoneName")?.value ?? "";
+
+  return `Current date and time: ${formatted} ${tzName}`;
+}
+
 export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -208,7 +239,8 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
         return;
       }
 
-      const systemPrompt = agent.systemPrompt ?? "";
+      const dateTimeInfo = getCurrentDateTimeString(agent.timeZoneId);
+      const systemPrompt = `${dateTimeInfo}\n\n${agent.systemPrompt ?? ""}`.trim();
 
       // Check if there are knowledge documents available
       const knowledgeDocs = await getKnowledgeDocuments(agent.id);
