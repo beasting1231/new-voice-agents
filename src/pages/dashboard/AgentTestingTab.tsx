@@ -7,9 +7,11 @@ import {
   addChatMessage,
   getApiKeys,
   getKnowledgeDocuments,
+  subscribeTools,
 } from "../../lib/db";
-import type { ChatSession, ChatMessage, Agent } from "../../lib/db";
+import type { ChatSession, ChatMessage, Agent, Tool, McpToolDefinition } from "../../lib/db";
 import { formatFirestoreError } from "../../lib/firestoreError";
+import { McpClient } from "../../lib/mcp";
 
 function SendIcon() {
   return (
@@ -99,6 +101,15 @@ function getCurrentDateTimeString(timeZoneId?: string): string {
   return `Current date and time: ${formatted} ${tzName}`;
 }
 
+// Icon for MCP tool calls
+function ToolIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -107,6 +118,18 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [projectTools, setProjectTools] = useState<Tool[]>([]);
+
+  // Subscribe to project tools
+  useEffect(() => {
+    if (!projectId) return;
+    const unsub = subscribeTools(
+      projectId,
+      (next) => setProjectTools(next),
+      (err) => setError(formatFirestoreError(err)),
+    );
+    return () => unsub();
+  }, [projectId]);
 
   // Subscribe to sessions for this agent
   useEffect(() => {
@@ -158,56 +181,192 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
     }
   };
 
+  // Get MCP tools assigned to this agent with their definitions
+  const getAgentMcpTools = (): Array<{ toolRef: { toolId: string; toolName: string }; definition: McpToolDefinition; serverUrl: string }> => {
+    if (!agent.tools || agent.tools.length === 0) return [];
+
+    const result: Array<{ toolRef: { toolId: string; toolName: string }; definition: McpToolDefinition; serverUrl: string }> = [];
+
+    for (const toolRef of agent.tools) {
+      // Find the parent Tool document
+      const parentTool = projectTools.find(t => t.id === toolRef.toolId);
+      if (!parentTool || parentTool.type !== "n8n") continue;
+
+      // Find the specific tool definition
+      const toolDef = parentTool.availableTools?.find(
+        (t: McpToolDefinition) => t.name === toolRef.toolName
+      );
+      if (!toolDef) continue;
+
+      result.push({
+        toolRef,
+        definition: toolDef,
+        serverUrl: parentTool.serverUrl ?? "",
+      });
+    }
+
+    return result;
+  };
+
   // Tool definitions for each provider
-  const getOpenAITools = () => [{
-    type: "function" as const,
-    function: {
-      name: "search_knowledge_base",
-      description: "Search the knowledge base for relevant information to answer the user's question. Use this when you need specific information or facts that might be in the uploaded documents.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query to find relevant information"
-          }
-        },
-        required: ["query"]
-      }
-    }
-  }];
+  const getOpenAITools = (hasKnowledge: boolean) => {
+    const tools: Array<{ type: "function"; function: { name: string; description: string; parameters: object } }> = [];
 
-  const getAnthropicTools = () => [{
-    name: "search_knowledge_base",
-    description: "Search the knowledge base for relevant information to answer the user's question. Use this when you need specific information or facts that might be in the uploaded documents.",
-    input_schema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "The search query to find relevant information"
+    // Add knowledge base tool if available
+    if (hasKnowledge) {
+      tools.push({
+        type: "function" as const,
+        function: {
+          name: "search_knowledge_base",
+          description: "Search the knowledge base for relevant information to answer the user's question. Use this when you need specific information or facts that might be in the uploaded documents.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query to find relevant information"
+              }
+            },
+            required: ["query"]
+          }
         }
-      },
-      required: ["query"]
+      });
     }
-  }];
 
-  const getGeminiTools = () => [{
-    functionDeclarations: [{
-      name: "search_knowledge_base",
-      description: "Search the knowledge base for relevant information to answer the user's question. Use this when you need specific information or facts that might be in the uploaded documents.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query to find relevant information"
-          }
-        },
-        required: ["query"]
+    // Add MCP tools
+    for (const mcpTool of getAgentMcpTools()) {
+      tools.push({
+        type: "function" as const,
+        function: {
+          name: mcpTool.definition.name,
+          description: mcpTool.definition.description ?? "",
+          parameters: mcpTool.definition.inputSchema ?? { type: "object", properties: {} }
+        }
+      });
+    }
+
+    return tools;
+  };
+
+  const getAnthropicTools = (hasKnowledge: boolean) => {
+    const tools: Array<{ name: string; description: string; input_schema: object }> = [];
+
+    // Add knowledge base tool if available
+    if (hasKnowledge) {
+      tools.push({
+        name: "search_knowledge_base",
+        description: "Search the knowledge base for relevant information to answer the user's question. Use this when you need specific information or facts that might be in the uploaded documents.",
+        input_schema: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "The search query to find relevant information"
+            }
+          },
+          required: ["query"]
+        }
+      });
+    }
+
+    // Add MCP tools
+    for (const mcpTool of getAgentMcpTools()) {
+      tools.push({
+        name: mcpTool.definition.name,
+        description: mcpTool.definition.description ?? "",
+        input_schema: mcpTool.definition.inputSchema ?? { type: "object", properties: {} }
+      });
+    }
+
+    return tools;
+  };
+
+  // Sanitize JSON Schema for Gemini API (remove unsupported fields)
+  const sanitizeSchemaForGemini = (schema: Record<string, unknown>): Record<string, unknown> => {
+    const unsupportedFields = ["$schema", "additionalProperties", "$id", "$ref", "$defs", "definitions"];
+    const result: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(schema)) {
+      if (unsupportedFields.includes(key)) continue;
+
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        result[key] = sanitizeSchemaForGemini(value as Record<string, unknown>);
+      } else if (Array.isArray(value)) {
+        result[key] = value.map(item =>
+          item && typeof item === "object" ? sanitizeSchemaForGemini(item as Record<string, unknown>) : item
+        );
+      } else {
+        result[key] = value;
       }
-    }]
-  }];
+    }
+
+    return result;
+  };
+
+  const getGeminiTools = (hasKnowledge: boolean) => {
+    const functionDeclarations: Array<{ name: string; description: string; parameters: object }> = [];
+
+    // Add knowledge base tool if available
+    if (hasKnowledge) {
+      functionDeclarations.push({
+        name: "search_knowledge_base",
+        description: "Search the knowledge base for relevant information to answer the user's question. Use this when you need specific information or facts that might be in the uploaded documents.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "The search query to find relevant information"
+            }
+          },
+          required: ["query"]
+        }
+      });
+    }
+
+    // Add MCP tools (sanitize schema for Gemini)
+    for (const mcpTool of getAgentMcpTools()) {
+      const sanitizedParams = mcpTool.definition.inputSchema
+        ? sanitizeSchemaForGemini(mcpTool.definition.inputSchema as Record<string, unknown>)
+        : { type: "object", properties: {} };
+
+      functionDeclarations.push({
+        name: mcpTool.definition.name,
+        description: mcpTool.definition.description ?? "",
+        parameters: sanitizedParams
+      });
+    }
+
+    return functionDeclarations.length > 0 ? [{ functionDeclarations }] : [];
+  };
+
+  // Execute an MCP tool
+  const executeMcpTool = async (toolName: string, args: Record<string, unknown>): Promise<string> => {
+    const mcpTools = getAgentMcpTools();
+    const mcpTool = mcpTools.find(t => t.definition.name === toolName);
+
+    if (!mcpTool) {
+      throw new Error(`MCP tool ${toolName} not found`);
+    }
+
+    console.log("[MCP] Executing tool:", toolName, "with args:", args, "on server:", mcpTool.serverUrl);
+
+    const client = new McpClient({ serverUrl: mcpTool.serverUrl });
+    try {
+      await client.connect();
+      const result = await client.callTool(toolName, args);
+
+      // Extract text content from result
+      const textContent = result.content
+        ?.filter(c => c.type === "text" && c.text)
+        .map(c => c.text)
+        .join("\n");
+
+      return textContent || JSON.stringify(result);
+    } finally {
+      client.disconnect();
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || !activeSessionId || sending) return;
@@ -245,6 +404,18 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
       // Check if there are knowledge documents available
       const knowledgeDocs = await getKnowledgeDocuments(agent.id);
       const hasKnowledge = knowledgeDocs.length > 0;
+      const mcpTools = getAgentMcpTools();
+      const hasMcpTools = mcpTools.length > 0;
+
+      // Build tool hints for system prompt
+      let toolHints = "";
+      if (hasKnowledge) {
+        toolHints += "\n\nYou have access to a knowledge base. Use the search_knowledge_base tool when you need to look up specific information.";
+      }
+      if (hasMcpTools) {
+        const toolNames = mcpTools.map(t => t.definition.name).join(", ");
+        toolHints += `\n\nYou have access to the following tools: ${toolNames}. Use them when appropriate to help the user.`;
+      }
 
       // Filter out tool messages from conversation history
       const conversationMessages = messages.filter(m => m.role !== "tool");
@@ -254,11 +425,12 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
       if (provider === "openai") {
         // Build messages for API
         const apiMessages = [
-          ...(systemPrompt ? [{ role: "system" as const, content: systemPrompt + (hasKnowledge ? "\n\nYou have access to a knowledge base. Use the search_knowledge_base tool when you need to look up specific information." : "") }] : []),
+          ...(systemPrompt || toolHints ? [{ role: "system" as const, content: systemPrompt + toolHints }] : []),
           ...conversationMessages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
           { role: "user" as const, content: userMessage },
         ];
 
+        const openAITools = getOpenAITools(hasKnowledge);
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -268,7 +440,7 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
           body: JSON.stringify({
             model: model,
             messages: apiMessages,
-            ...(hasKnowledge && { tools: getOpenAITools() }),
+            ...(openAITools.length > 0 && { tools: openAITools }),
           }),
         });
 
@@ -280,10 +452,20 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
         let data = await response.json();
         let message = data.choices?.[0]?.message;
 
-        // Check if LLM wants to use a tool
-        if (message?.tool_calls && message.tool_calls.length > 0) {
+        // Check if LLM wants to use a tool (loop to handle multiple tool calls)
+        while (message?.tool_calls && message.tool_calls.length > 0) {
           const toolCall = message.tool_calls[0];
-          if (toolCall.function.name === "search_knowledge_base") {
+          const toolName = toolCall.function.name;
+          let toolArgs: Record<string, unknown> = {};
+          try {
+            toolArgs = JSON.parse(toolCall.function.arguments || "{}");
+          } catch {
+            toolArgs = {};
+          }
+
+          let toolResult: string;
+
+          if (toolName === "search_knowledge_base") {
             // Log the tool use
             await addChatMessage(activeSessionId, "tool", "Searching knowledge base...", "knowledge_search");
 
@@ -299,47 +481,65 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
               "knowledge_found"
             );
 
-            // Continue conversation with tool result
-            const followUpMessages = [
-              ...apiMessages,
-              message,
-              {
-                role: "tool" as const,
-                tool_call_id: toolCall.id,
-                content: knowledgeContent || "No documents found in knowledge base.",
-              },
-            ];
+            toolResult = knowledgeContent || "No documents found in knowledge base.";
+          } else {
+            // MCP tool call
+            await addChatMessage(activeSessionId, "tool", `Calling ${toolName}...`, "mcp_call");
 
-            const followUpResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-              },
-              body: JSON.stringify({
-                model: model,
-                messages: followUpMessages,
-              }),
-            });
-
-            if (!followUpResponse.ok) {
-              const errData = await followUpResponse.json().catch(() => ({}));
-              throw new Error(errData.error?.message ?? `OpenAI API error: ${followUpResponse.status}`);
+            try {
+              toolResult = await executeMcpTool(toolName, toolArgs);
+              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result");
+            } catch (err) {
+              toolResult = `Error calling tool: ${err instanceof Error ? err.message : "Unknown error"}`;
+              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${err instanceof Error ? err.message : "Unknown error"}`, "mcp_error");
             }
-
-            data = await followUpResponse.json();
-            message = data.choices?.[0]?.message;
           }
+
+          // Continue conversation with tool result
+          const followUpMessages = [
+            ...apiMessages,
+            message,
+            {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: toolResult,
+            },
+          ];
+
+          const followUpResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: followUpMessages,
+              ...(openAITools.length > 0 && { tools: openAITools }),
+            }),
+          });
+
+          if (!followUpResponse.ok) {
+            const errData = await followUpResponse.json().catch(() => ({}));
+            throw new Error(errData.error?.message ?? `OpenAI API error: ${followUpResponse.status}`);
+          }
+
+          data = await followUpResponse.json();
+          message = data.choices?.[0]?.message;
+
+          // Update apiMessages for next iteration if needed
+          apiMessages.push(followUpMessages[followUpMessages.length - 2], followUpMessages[followUpMessages.length - 1]);
         }
 
         assistantResponse = message?.content ?? "No response";
       } else if (provider === "anthropic") {
         // Anthropic message format
-        const anthropicMessages = [
+        const anthropicMessages: Array<{ role: "user" | "assistant"; content: unknown }> = [
           ...conversationMessages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
           { role: "user" as const, content: userMessage },
         ];
 
+        const anthropicTools = getAnthropicTools(hasKnowledge);
         const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -351,9 +551,9 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
           body: JSON.stringify({
             model: model,
             max_tokens: 4096,
-            system: systemPrompt + (hasKnowledge ? "\n\nYou have access to a knowledge base. Use the search_knowledge_base tool when you need to look up specific information." : ""),
+            system: systemPrompt + toolHints,
             messages: anthropicMessages,
-            ...(hasKnowledge && { tools: getAnthropicTools() }),
+            ...(anthropicTools.length > 0 && { tools: anthropicTools }),
           }),
         });
 
@@ -364,37 +564,54 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
 
         let data = await response.json();
 
-        // Check if LLM wants to use a tool
-        const toolUseBlock = data.content?.find((block: { type: string }) => block.type === "tool_use");
-        if (toolUseBlock && toolUseBlock.name === "search_knowledge_base") {
-          // Log the tool use
-          await addChatMessage(activeSessionId, "tool", "Searching knowledge base...", "knowledge_search");
+        // Check if LLM wants to use a tool (loop to handle multiple tool calls)
+        let toolUseBlock = data.content?.find((block: { type: string }) => block.type === "tool_use");
+        while (toolUseBlock) {
+          const toolName = toolUseBlock.name;
+          const toolArgs = toolUseBlock.input || {};
 
-          // Get knowledge content
-          const knowledgeContent = knowledgeDocs
-            .map((doc) => `--- ${doc.fileName} ---\n${doc.content}`)
-            .join("\n\n");
+          let toolResult: string;
 
-          await addChatMessage(
-            activeSessionId,
-            "tool",
-            `Found ${knowledgeDocs.length} document${knowledgeDocs.length === 1 ? "" : "s"} in knowledge base`,
-            "knowledge_found"
-          );
+          if (toolName === "search_knowledge_base") {
+            // Log the tool use
+            await addChatMessage(activeSessionId, "tool", "Searching knowledge base...", "knowledge_search");
+
+            // Get knowledge content
+            const knowledgeContent = knowledgeDocs
+              .map((doc) => `--- ${doc.fileName} ---\n${doc.content}`)
+              .join("\n\n");
+
+            await addChatMessage(
+              activeSessionId,
+              "tool",
+              `Found ${knowledgeDocs.length} document${knowledgeDocs.length === 1 ? "" : "s"} in knowledge base`,
+              "knowledge_found"
+            );
+
+            toolResult = knowledgeContent || "No documents found in knowledge base.";
+          } else {
+            // MCP tool call
+            await addChatMessage(activeSessionId, "tool", `Calling ${toolName}...`, "mcp_call");
+
+            try {
+              toolResult = await executeMcpTool(toolName, toolArgs);
+              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result");
+            } catch (err) {
+              toolResult = `Error calling tool: ${err instanceof Error ? err.message : "Unknown error"}`;
+              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${err instanceof Error ? err.message : "Unknown error"}`, "mcp_error");
+            }
+          }
 
           // Continue conversation with tool result
-          const followUpMessages = [
-            ...anthropicMessages,
-            { role: "assistant" as const, content: data.content },
-            {
-              role: "user" as const,
-              content: [{
-                type: "tool_result" as const,
-                tool_use_id: toolUseBlock.id,
-                content: knowledgeContent || "No documents found in knowledge base.",
-              }],
-            },
-          ];
+          anthropicMessages.push({ role: "assistant" as const, content: data.content });
+          anthropicMessages.push({
+            role: "user" as const,
+            content: [{
+              type: "tool_result" as const,
+              tool_use_id: toolUseBlock.id,
+              content: toolResult,
+            }],
+          });
 
           const followUpResponse = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
@@ -407,8 +624,9 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
             body: JSON.stringify({
               model: model,
               max_tokens: 4096,
-              system: systemPrompt,
-              messages: followUpMessages,
+              system: systemPrompt + toolHints,
+              messages: anthropicMessages,
+              ...(anthropicTools.length > 0 && { tools: anthropicTools }),
             }),
           });
 
@@ -418,6 +636,7 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
           }
 
           data = await followUpResponse.json();
+          toolUseBlock = data.content?.find((block: { type: string }) => block.type === "tool_use");
         }
 
         // Extract text response
@@ -425,11 +644,11 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
         assistantResponse = textBlock?.text ?? "No response";
       } else if (provider === "google") {
         // Google Gemini API format
-        const geminiContents = [];
+        const geminiContents: Array<{ role: string; parts: unknown[] }> = [];
 
         // Add system instruction if present
-        const systemInstruction = (systemPrompt + (hasKnowledge ? "\n\nYou have access to a knowledge base. Use the search_knowledge_base function when you need to look up specific information." : "")) ? {
-          parts: [{ text: systemPrompt + (hasKnowledge ? "\n\nYou have access to a knowledge base. Use the search_knowledge_base function when you need to look up specific information." : "") }]
+        const systemInstruction = (systemPrompt + toolHints) ? {
+          parts: [{ text: systemPrompt + toolHints }]
         } : undefined;
 
         // Add conversation history (filter out tool messages)
@@ -446,6 +665,7 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
           parts: [{ text: userMessage }]
         });
 
+        const geminiTools = getGeminiTools(hasKnowledge);
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
@@ -456,7 +676,7 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
             body: JSON.stringify({
               contents: geminiContents,
               ...(systemInstruction && { systemInstruction }),
-              ...(hasKnowledge && { tools: getGeminiTools() }),
+              ...(geminiTools.length > 0 && { tools: geminiTools }),
             }),
           }
         );
@@ -469,38 +689,55 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
         let data = await response.json();
         let candidate = data.candidates?.[0];
 
-        // Check if LLM wants to use a tool
-        const functionCall = candidate?.content?.parts?.find((p: { functionCall?: unknown }) => p.functionCall)?.functionCall;
-        if (functionCall && functionCall.name === "search_knowledge_base") {
-          // Log the tool use
-          await addChatMessage(activeSessionId, "tool", "Searching knowledge base...", "knowledge_search");
+        // Check if LLM wants to use a tool (loop to handle multiple tool calls)
+        let functionCall = candidate?.content?.parts?.find((p: { functionCall?: unknown }) => p.functionCall)?.functionCall;
+        while (functionCall) {
+          const toolName = functionCall.name;
+          const toolArgs = functionCall.args || {};
 
-          // Get knowledge content
-          const knowledgeContent = knowledgeDocs
-            .map((doc) => `--- ${doc.fileName} ---\n${doc.content}`)
-            .join("\n\n");
+          let toolResult: string;
 
-          await addChatMessage(
-            activeSessionId,
-            "tool",
-            `Found ${knowledgeDocs.length} document${knowledgeDocs.length === 1 ? "" : "s"} in knowledge base`,
-            "knowledge_found"
-          );
+          if (toolName === "search_knowledge_base") {
+            // Log the tool use
+            await addChatMessage(activeSessionId, "tool", "Searching knowledge base...", "knowledge_search");
+
+            // Get knowledge content
+            const knowledgeContent = knowledgeDocs
+              .map((doc) => `--- ${doc.fileName} ---\n${doc.content}`)
+              .join("\n\n");
+
+            await addChatMessage(
+              activeSessionId,
+              "tool",
+              `Found ${knowledgeDocs.length} document${knowledgeDocs.length === 1 ? "" : "s"} in knowledge base`,
+              "knowledge_found"
+            );
+
+            toolResult = knowledgeContent || "No documents found in knowledge base.";
+          } else {
+            // MCP tool call
+            await addChatMessage(activeSessionId, "tool", `Calling ${toolName}...`, "mcp_call");
+
+            try {
+              toolResult = await executeMcpTool(toolName, toolArgs);
+              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result");
+            } catch (err) {
+              toolResult = `Error calling tool: ${err instanceof Error ? err.message : "Unknown error"}`;
+              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${err instanceof Error ? err.message : "Unknown error"}`, "mcp_error");
+            }
+          }
 
           // Continue conversation with tool result
-          const followUpContents = [
-            ...geminiContents,
-            candidate.content,
-            {
-              role: "user",
-              parts: [{
-                functionResponse: {
-                  name: "search_knowledge_base",
-                  response: { content: knowledgeContent || "No documents found in knowledge base." }
-                }
-              }]
-            }
-          ];
+          geminiContents.push(candidate.content);
+          geminiContents.push({
+            role: "user",
+            parts: [{
+              functionResponse: {
+                name: toolName,
+                response: { content: toolResult }
+              }
+            }]
+          });
 
           const followUpResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -510,8 +747,9 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                contents: followUpContents,
+                contents: geminiContents,
                 ...(systemInstruction && { systemInstruction }),
+                ...(geminiTools.length > 0 && { tools: geminiTools }),
               }),
             }
           );
@@ -523,6 +761,7 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
 
           data = await followUpResponse.json();
           candidate = data.candidates?.[0];
+          functionCall = candidate?.content?.parts?.find((p: { functionCall?: unknown }) => p.functionCall)?.functionCall;
         }
 
         assistantResponse = candidate?.content?.parts?.[0]?.text ?? "No response";
@@ -604,15 +843,16 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
               ) : (
                 messages.map((msg) => (
                   msg.role === "tool" ? (
-                    <div key={msg.id} className="ui-tool-activity ui-tool-activity--done">
+                    <div key={msg.id} className={`ui-tool-activity ${msg.toolType === "mcp_error" ? "ui-tool-activity--error" : "ui-tool-activity--done"}`}>
                       <span className="ui-tool-activity__icon">
                         {msg.toolType === "knowledge_search" && <SearchIcon />}
                         {msg.toolType === "knowledge_found" && <BookIcon />}
                         {msg.toolType === "thinking" && <BrainIcon />}
+                        {(msg.toolType === "mcp_call" || msg.toolType === "mcp_result" || msg.toolType === "mcp_error") && <ToolIcon />}
                       </span>
                       <span className="ui-tool-activity__message">{msg.content}</span>
                       <span className="ui-tool-activity__check">
-                        <CheckIcon />
+                        {msg.toolType !== "mcp_error" && <CheckIcon />}
                       </span>
                     </div>
                   ) : (

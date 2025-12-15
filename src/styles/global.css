@@ -1579,6 +1579,19 @@ body {
   border-color: rgba(34, 197, 94, 0.2);
 }
 
+.ui-tool-activity--error {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.ui-tool-activity--error .ui-tool-activity__icon {
+  color: #ef4444;
+}
+
+.ui-tool-activity--error .ui-tool-activity__message {
+  color: #ef4444;
+}
+
 .ui-tool-activity__icon {
   display: flex;
   align-items: center;

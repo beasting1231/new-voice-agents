@@ -104,7 +104,7 @@ export type ChatMessage = {
   sessionId: string;
   role: "user" | "assistant" | "tool";
   content: string;
-  toolType?: "knowledge_search" | "knowledge_found" | "thinking" | "complete";
+  toolType?: "knowledge_search" | "knowledge_found" | "thinking" | "complete" | "mcp_call" | "mcp_result" | "mcp_error";
   createdAt?: unknown;
 };
 
@@ -459,7 +459,7 @@ export async function addChatMessage(
   sessionId: string,
   role: "user" | "assistant" | "tool",
   content: string,
-  toolType?: "knowledge_search" | "knowledge_found" | "thinking" | "complete",
+  toolType?: "knowledge_search" | "knowledge_found" | "thinking" | "complete" | "mcp_call" | "mcp_result" | "mcp_error",
 ) {
   const messageData: Record<string, unknown> = {
     sessionId,
