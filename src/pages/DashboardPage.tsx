@@ -8,13 +8,14 @@ import {
   type SecondarySidebarSectionId,
   type SidebarItemId,
 } from "../components";
-import { AgentsView, ApiKeysView } from "./dashboard";
+import { AgentsView, ApiKeysView, ToolsView } from "./dashboard";
 import { useAuth } from "../auth";
 import { useNavigate } from "react-router-dom";
 import {
   createAgent,
   createProject,
   createTemplate,
+  createTool,
   deleteAgent,
   deleteTemplate,
   duplicateAgent,
@@ -23,6 +24,8 @@ import {
   subscribeProjects,
   subscribeTemplates,
   subscribeAgents,
+  subscribeTools,
+  type Tool,
 } from "../lib/db";
 import { formatFirestoreError } from "../lib/firestoreError";
 
@@ -83,7 +86,8 @@ export function DashboardPage() {
 
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [templates, setTemplates] = useState<Array<{ id: string; name: string }>>([]);
-  const [createModal, setCreateModal] = useState<null | { kind: "project" | "agent" | "template" }>(null);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [createModal, setCreateModal] = useState<null | { kind: "project" | "agent" | "template" | "tool" }>(null);
   const [createName, setCreateName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -116,9 +120,18 @@ export function DashboardPage() {
       },
       (err) => setDbError(formatFirestoreError(err)),
     );
+    const unsubTools = subscribeTools(
+      selectedProjectId,
+      (next) => {
+        setDbError(null);
+        setTools(next);
+      },
+      (err) => setDbError(formatFirestoreError(err)),
+    );
     return () => {
       unsubAgents();
       unsubTemplates();
+      unsubTools();
     };
   }, [selectedProjectId, user]);
 
@@ -173,6 +186,7 @@ export function DashboardPage() {
             onSelectSubItemId={setActiveSubItemId}
             agents={agents.map((a) => ({ id: a.id, label: a.name }))}
             templates={templates.map((t) => ({ id: t.id, label: t.name }))}
+            tools={tools.map((t) => ({ id: t.id, label: t.name }))}
             onCreateAgent={() => {
               setCreateName("");
               setCreateModal({ kind: "agent" });
@@ -180,6 +194,10 @@ export function DashboardPage() {
             onCreateTemplate={() => {
               setCreateName("");
               setCreateModal({ kind: "template" });
+            }}
+            onCreateTool={() => {
+              // Clear selection to show tool type cards
+              setActiveSubItemId(undefined);
             }}
             onDuplicateAgent={async (id) => {
               try {
@@ -219,9 +237,28 @@ export function DashboardPage() {
             selectedProjectId={selectedProjectId}
             selectedSubItemId={activeSubItemId}
             agentCount={agents.length}
+            tools={tools}
             onCreateAgent={() => {
               setCreateName("");
               setCreateModal({ kind: "agent" });
+            }}
+          />
+        ) : activeItemId === "tools" ? (
+          <ToolsView
+            selectedProjectId={selectedProjectId}
+            selectedSubItemId={activeSubItemId}
+            toolCount={tools.length}
+            tools={tools}
+            onSaveN8nTool={async (config) => {
+              try {
+                const toolId = await createTool(selectedProjectId, config.name, "n8n", {
+                  serverUrl: config.serverUrl,
+                  availableTools: config.availableTools,
+                });
+                setActiveSubItemId(toolId);
+              } catch (err) {
+                setDbError(formatFirestoreError(err));
+              }
             }}
           />
         ) : activeItemId === "apiKeys" ? (
@@ -240,7 +277,9 @@ export function DashboardPage() {
             ? "Create project"
             : createModal?.kind === "template"
               ? "Create template"
-              : "Create agent"
+              : createModal?.kind === "tool"
+                ? "Create tool"
+                : "Create agent"
         }
         description="Enter a name to create it in the database."
         onClose={() => {
@@ -307,7 +346,9 @@ export function DashboardPage() {
                 ? "e.g. Basting Solutions LLC"
                 : createModal?.kind === "template"
                   ? "e.g. Transfer template"
-                  : "e.g. transfer agent"
+                  : createModal?.kind === "tool"
+                    ? "e.g. Search database"
+                    : "e.g. transfer agent"
             }
             autoFocus
             onKeyDown={(e) => {

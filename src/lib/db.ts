@@ -37,6 +37,11 @@ export type Project = {
   createdAt?: unknown;
 };
 
+export type AgentToolRef = {
+  toolId: string; // ID of the parent Tool document (e.g., MCP server)
+  toolName: string; // Name of the specific tool within that parent
+};
+
 export type Agent = {
   id: string;
   projectId: string;
@@ -51,6 +56,7 @@ export type Agent = {
   firstMessage?: string;
   systemPrompt?: string;
   timeZoneId?: string;
+  tools?: AgentToolRef[];
 };
 
 export type Template = {
@@ -58,6 +64,28 @@ export type Template = {
   projectId: string;
   name: string;
   createdAt?: unknown;
+};
+
+export type McpToolDefinition = {
+  name: string;
+  description?: string;
+  inputSchema: {
+    type: "object";
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+};
+
+export type Tool = {
+  id: string;
+  projectId: string;
+  name: string;
+  type: "n8n" | "http" | "custom";
+  createdAt?: unknown;
+  updatedAt?: unknown;
+  // n8n-specific fields
+  serverUrl?: string;
+  availableTools?: McpToolDefinition[];
 };
 
 export type ApiKeys = {
@@ -128,7 +156,7 @@ export async function createProject(uid: string, name: string) {
 }
 
 async function deleteCollectionWhere(
-  collectionName: "agents" | "templates",
+  collectionName: "agents" | "templates" | "tools",
   field: "projectId",
   value: string,
 ): Promise<number> {
@@ -154,6 +182,7 @@ export async function deleteAllUserData(uid: string) {
       await Promise.all([
         deleteCollectionWhere("agents", "projectId", project.id),
         deleteCollectionWhere("templates", "projectId", project.id),
+        deleteCollectionWhere("tools", "projectId", project.id),
       ]);
       const batch = writeBatch(firebaseDb);
       batch.delete(project.ref);
@@ -198,6 +227,39 @@ export function subscribeTemplates(
   );
 }
 
+export function subscribeTools(
+  projectId: string,
+  cb: (tools: Tool[]) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe {
+  const q = query(collection(firebaseDb, "tools"), where("projectId", "==", projectId));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const tools = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Tool, "id">) }))
+        .sort((a, b) => createdAtMs(a.createdAt) - createdAtMs(b.createdAt) || a.name.localeCompare(b.name));
+      cb(tools);
+    },
+    (err) => onError?.(err),
+  );
+}
+
+export function subscribeTool(
+  toolId: string,
+  cb: (tool: Tool | null) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(firebaseDb, "tools", toolId),
+    (snap) => {
+      if (!snap.exists()) cb(null);
+      else cb({ id: snap.id, ...(snap.data() as Omit<Tool, "id">) });
+    },
+    (err) => onError?.(err),
+  );
+}
+
 export function subscribeAgent(
   agentId: string,
   cb: (agent: Agent | null) => void,
@@ -235,6 +297,39 @@ export async function createTemplate(projectId: string, name: string) {
     createdAt: serverTimestamp(),
   });
   return templateDoc.id;
+}
+
+export async function createTool(
+  projectId: string,
+  name: string,
+  type: Tool["type"],
+  config: {
+    serverUrl?: string;
+    availableTools?: McpToolDefinition[];
+  } = {},
+) {
+  const toolDoc = await addDoc(collection(firebaseDb, "tools"), {
+    projectId,
+    name,
+    type,
+    serverUrl: config.serverUrl,
+    availableTools: config.availableTools,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return toolDoc.id;
+}
+
+export async function updateTool(toolId: string, patch: Partial<Omit<Tool, "id" | "projectId" | "createdAt">>) {
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v !== undefined) cleaned[k] = v;
+  }
+  await updateDoc(doc(firebaseDb, "tools", toolId), { ...cleaned, updatedAt: serverTimestamp() });
+}
+
+export async function deleteTool(toolId: string) {
+  await deleteDoc(doc(firebaseDb, "tools", toolId));
 }
 
 export async function updateAgent(agentId: string, patch: Partial<Omit<Agent, "id" | "projectId" | "createdAt">>) {

@@ -22,8 +22,10 @@ export type SecondarySidebarProps = {
   onSelectSubItemId?: (id: string) => void;
   agents?: SecondarySidebarItem[];
   templates?: SecondarySidebarItem[];
+  tools?: SecondarySidebarItem[];
   onCreateAgent?: () => void;
   onCreateTemplate?: () => void;
+  onCreateTool?: () => void;
   onDuplicateAgent?: (id: string) => void;
   onDeleteAgent?: (id: string) => void;
   onDuplicateTemplate?: (id: string) => void;
@@ -68,8 +70,10 @@ export function SecondarySidebar({
   onSelectSubItemId,
   agents = [],
   templates = [],
+  tools = [],
   onCreateAgent,
   onCreateTemplate,
+  onCreateTool,
   onDuplicateAgent,
   onDeleteAgent,
   onDuplicateTemplate,
@@ -116,16 +120,41 @@ export function SecondarySidebar({
   const section = getSection(renderedSectionId);
   const current = activeSubItemId ?? section.items[0]?.id ?? "";
   const isAgentsSection = renderedSectionId === "agents";
+  const isToolsSection = renderedSectionId === "tools";
 
   const agentItems: SecondarySidebarItem[] = agents;
   const templateItems: SecondarySidebarItem[] = templates;
+  const toolItems: SecondarySidebarItem[] = tools;
 
   return (
     <div className={["ui-secondary-sidebar", open ? "is-open" : "is-closed"].join(" ")}>
       <div className={["ui-secondary-sidebar__content", contentVisible ? "is-visible" : "is-hidden"].join(" ")}>
         <div className="ui-secondary-sidebar__title">{section.title}</div>
         <nav className="ui-secondary-sidebar__nav" aria-label={`${section.title} sub navigation`}>
-          {isAgentsSection ? (
+          {isToolsSection ? (
+            <>
+              <button
+                type="button"
+                className="ui-secondary-sidebar__create"
+                onClick={() => (open && contentVisible ? onCreateTool?.() : undefined)}
+              >
+                + New tool
+              </button>
+              {toolItems.map((item) => {
+                const active = item.id === current;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={["ui-secondary-sidebar__subitem", active ? "is-active" : ""].filter(Boolean).join(" ")}
+                    onClick={() => (open && contentVisible ? onSelectSubItemId?.(item.id) : undefined)}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </>
+          ) : isAgentsSection ? (
             <>
               <button
                 type="button"

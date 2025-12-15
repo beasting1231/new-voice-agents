@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Field, IconButton, SelectMenu, Switch, Tabs, type SelectMenuItem, type TabItem } from "../../components";
 import { useAuth } from "../../auth";
 import { subscribeAgent, updateAgent } from "../../lib/db";
-import type { Agent } from "../../lib/db";
+import type { Agent, Tool } from "../../lib/db";
 import { formatFirestoreError } from "../../lib/firestoreError";
 import { AgentTestingTab } from "./AgentTestingTab";
 import { AgentKnowledgeTab } from "./AgentKnowledgeTab";
+import { AgentToolsTab } from "./AgentToolsTab";
 
 type AgentTabId = "configuration" | "tools" | "knowledge" | "testing";
 type AgentModeId = "text" | "voice";
@@ -28,10 +29,11 @@ export type AgentsViewProps = {
   selectedProjectId: string;
   selectedSubItemId?: string;
   agentCount: number;
+  tools?: Tool[];
   onCreateAgent?: () => void;
 };
 
-export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, onCreateAgent }: AgentsViewProps) {
+export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, tools = [], onCreateAgent }: AgentsViewProps) {
   const { user } = useAuth();
   const tabs: TabItem<AgentTabId>[] = useMemo(
     () => [
@@ -439,14 +441,9 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, o
             )
           ) : tabId === "knowledge" ? (
             <AgentKnowledgeTab agent={agent} projectId={selectedProjectId} />
-          ) : (
-            <div className="ui-panel__placeholder">
-              <div className="ui-placeholder-card">
-                <div className="ui-placeholder-card__title">Tools</div>
-                <div className="ui-placeholder-card__body">Mock UI for now — we'll build this next.</div>
-              </div>
-            </div>
-          )}
+          ) : tabId === "tools" ? (
+            <AgentToolsTab agent={agent} tools={tools} onError={(err) => setDbError(err)} />
+          ) : null}
         </div>
       </div>
     </div>
