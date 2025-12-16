@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { N8nToolConfig, type N8nToolConfiguration } from "./N8nToolConfig";
-import { Button, Field } from "../../components";
-import { McpClient, type McpTool, type McpToolResult } from "../../lib/mcp";
-import { updateTool, type Tool } from "../../lib/db";
+import { Button, Field, Modal } from "../../components";
+import { McpClient, mcpManager, type McpTool, type McpToolResult } from "../../lib/mcp";
+import { updateTool, deleteTool, type Tool } from "../../lib/db";
 
 export type ToolsViewProps = {
   selectedProjectId: string;
@@ -11,6 +11,7 @@ export type ToolsViewProps = {
   tools?: Tool[];
   onCreateTool?: (type: string) => void;
   onSaveN8nTool?: (config: N8nToolConfiguration) => void;
+  onToolDeleted?: () => void;
 };
 
 type ToolTypeCard = {
@@ -225,7 +226,7 @@ function StatusDot({ status }: { status: ConnectionStatus }) {
 }
 
 // Tool Detail View Component
-function ToolDetailView({ tool }: { tool: Tool }) {
+function ToolDetailView({ tool, onDelete }: { tool: Tool; onDelete?: () => void }) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [client, setClient] = useState<McpClient | null>(null);
   const [liveTools, setLiveTools] = useState<McpTool[]>([]);
@@ -236,6 +237,8 @@ function ToolDetailView({ tool }: { tool: Tool }) {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const addLog = useCallback((type: LogEntry["type"], message: string, details?: string) => {
     setLogs((prev) => [
@@ -250,30 +253,48 @@ function ToolDetailView({ tool }: { tool: Tool }) {
     ].slice(0, 100)); // Keep last 100 logs
   }, []);
 
+  // Check for existing connection on mount
+  useEffect(() => {
+    if (!tool.serverUrl) return;
+
+    const existingClient = mcpManager.getConnection(tool.serverUrl);
+    if (existingClient?.isConnected()) {
+      setClient(existingClient);
+      setStatus("connected");
+      addLog("info", "Restored existing connection");
+
+      // Fetch current tools
+      existingClient.listTools().then((tools) => {
+        setLiveTools(tools);
+        addLog("info", `Found ${tools.length} available tools`);
+      }).catch((err) => {
+        addLog("error", "Failed to list tools", err instanceof Error ? err.message : String(err));
+      });
+    }
+  }, [tool.serverUrl, addLog]);
+
   const connect = useCallback(async () => {
     if (!tool.serverUrl) return;
 
     setStatus("connecting");
     addLog("info", "Connecting to MCP server...", tool.serverUrl);
 
-    client?.disconnect();
-
-    const newClient = new McpClient({
-      serverUrl: tool.serverUrl,
-      onConnectionChange: (connected) => {
-        if (!connected && status === "connected") {
-          setStatus("disconnected");
-          addLog("info", "Disconnected from MCP server");
-        }
-      },
-      onError: (err) => {
-        addLog("error", "Connection error", err.message);
-        setStatus("error");
-      },
-    });
-
     try {
-      await newClient.connect();
+      // Use the connection manager to get or create a connection
+      const newClient = await mcpManager.getOrCreateConnection(tool.serverUrl, {
+        onConnectionChange: (connected) => {
+          if (!connected) {
+            setStatus("disconnected");
+            setClient(null);
+            addLog("info", "Disconnected from MCP server");
+          }
+        },
+        onError: (err) => {
+          addLog("error", "Connection error", err.message);
+          setStatus("error");
+        },
+      });
+
       setClient(newClient);
       setStatus("connected");
       addLog("info", "Connected to MCP server");
@@ -291,11 +312,11 @@ function ToolDetailView({ tool }: { tool: Tool }) {
     } catch (err) {
       setStatus("error");
       addLog("error", "Failed to connect", err instanceof Error ? err.message : String(err));
-      newClient.disconnect();
     }
-  }, [tool.serverUrl, tool.availableTools, client, status, addLog]);
+  }, [tool.serverUrl, tool.availableTools, addLog]);
 
   const disconnect = useCallback(() => {
+    // Actually disconnect and remove from manager
     client?.disconnect();
     setClient(null);
     setStatus("disconnected");
@@ -350,6 +371,21 @@ function ToolDetailView({ tool }: { tool: Tool }) {
       setSaving(false);
     }
   }, [tool.id, liveTools, addLog]);
+
+  const handleDelete = useCallback(async () => {
+    setDeleting(true);
+    try {
+      // Disconnect first if connected
+      client?.disconnect();
+      await deleteTool(tool.id);
+      onDelete?.();
+    } catch (err) {
+      addLog("error", "Failed to delete tool", err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  }, [tool.id, client, onDelete, addLog]);
 
   const executeTool = useCallback(async () => {
     if (!client || !selectedToolName) return;
@@ -435,6 +471,14 @@ function ToolDetailView({ tool }: { tool: Tool }) {
                   disabled={saving || !hasChanges}
                 >
                   {saving ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  style={{ color: "#ef4444" }}
+                >
+                  Delete
                 </Button>
               </div>
             </div>
@@ -560,11 +604,47 @@ function ToolDetailView({ tool }: { tool: Tool }) {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={deleteConfirmOpen}
+        title="Delete MCP Server"
+        description={`Are you sure you want to delete "${tool.name}"? This action cannot be undone.`}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteConfirmOpen(false);
+        }}
+        footer={
+          <div className="ui-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDeleteConfirmOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{ backgroundColor: "#ef4444", borderColor: "#ef4444" }}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="ui-modal__field">
+          <div className="ui-modal__field-label">
+            This will permanently remove this MCP server and all its tool configurations.
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN8nTool }: ToolsViewProps) {
+export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN8nTool, onToolDeleted }: ToolsViewProps) {
   const [creatingToolType, setCreatingToolType] = useState<string | null>(null);
 
   // If creating an n8n tool, show the config UI
@@ -583,7 +663,7 @@ export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN
   // If a tool is selected, show tool detail view
   const selectedTool = tools.find((t) => t.id === selectedSubItemId);
   if (selectedTool) {
-    return <ToolDetailView tool={selectedTool} />;
+    return <ToolDetailView tool={selectedTool} onDelete={onToolDeleted} />;
   }
 
   // No tool selected - show tool type cards

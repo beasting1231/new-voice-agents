@@ -260,6 +260,7 @@ export function DashboardPage() {
                 setDbError(formatFirestoreError(err));
               }
             }}
+            onToolDeleted={() => setActiveSubItemId(undefined)}
           />
         ) : activeItemId === "apiKeys" ? (
           <ApiKeysView selectedProjectId={selectedProjectId} />

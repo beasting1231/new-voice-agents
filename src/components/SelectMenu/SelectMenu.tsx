@@ -14,6 +14,8 @@ export type SelectMenuProps = {
   onFooterAction?: () => void;
   className?: string;
   showLabel?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 };
 
 function ChevronDown({ className }: { className?: string }) {
@@ -41,15 +43,26 @@ export function SelectMenu({
   onFooterAction,
   className,
   showLabel = true,
+  searchable = false,
+  searchPlaceholder = "Search...",
 }: SelectMenuProps) {
   const buttonId = useId();
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [renderPanel, setRenderPanel] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const selected = items.find((p) => p.id === valueId) ?? items[0];
+
+  // Filter items based on search query
+  const filteredItems = searchable && searchQuery
+    ? items.filter((item) =>
+        item.label.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : items;
 
   useEffect(() => {
     let raf = 0;
@@ -62,12 +75,22 @@ export function SelectMenu({
         setRenderPanel(true);
         setPanelOpen(false);
         raf = window.requestAnimationFrame(() => {
-          if (!cancelled) setPanelOpen(true);
+          if (!cancelled) {
+            setPanelOpen(true);
+            // Focus search input when opening if searchable
+            if (searchable) {
+              setTimeout(() => searchInputRef.current?.focus(), 50);
+            }
+          }
         });
       });
     } else {
       void Promise.resolve().then(() => {
-        if (!cancelled) setPanelOpen(false);
+        if (!cancelled) {
+          setPanelOpen(false);
+          // Clear search when closing
+          setSearchQuery("");
+        }
       });
       if (renderPanel) t = window.setTimeout(() => setRenderPanel(false), 180);
     }
@@ -77,7 +100,7 @@ export function SelectMenu({
       if (raf) window.cancelAnimationFrame(raf);
       if (t) window.clearTimeout(t);
     };
-  }, [open, renderPanel]);
+  }, [open, renderPanel, searchable]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -122,27 +145,50 @@ export function SelectMenu({
           id={panelId}
           role="dialog"
           aria-labelledby={buttonId}
-          className={["ui-select-menu__panel", panelOpen ? "is-open" : "is-closed"].join(" ")}
+          className={["ui-select-menu__panel", panelOpen ? "is-open" : "is-closed", searchable ? "is-searchable" : ""].join(" ")}
         >
+          {searchable && (
+            <div className="ui-select-menu__search">
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="ui-select-menu__search-input"
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Prevent closing on Escape if there's a search query - clear it instead
+                  if (e.key === "Escape" && searchQuery) {
+                    e.stopPropagation();
+                    setSearchQuery("");
+                  }
+                }}
+              />
+            </div>
+          )}
           <div className="ui-select-menu__list" role="listbox" aria-label={label}>
-            {items.map((p) => {
-              const active = p.id === valueId;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  className={["ui-select-menu__option", active ? "is-active" : ""].filter(Boolean).join(" ")}
-                  onClick={() => {
-                    onChangeValueId(p.id);
-                    setOpen(false);
-                  }}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
+            {filteredItems.length === 0 ? (
+              <div className="ui-select-menu__empty">No results found</div>
+            ) : (
+              filteredItems.map((p) => {
+                const active = p.id === valueId;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={["ui-select-menu__option", active ? "is-active" : "", searchable ? "ui-select-menu__option--searchable" : ""].filter(Boolean).join(" ")}
+                    onClick={() => {
+                      onChangeValueId(p.id);
+                      setOpen(false);
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })
+            )}
           </div>
 
           {footerActionLabel && (

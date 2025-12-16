@@ -97,9 +97,81 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
 
   const timeZoneItems: SelectMenuItem[] = useMemo(
     () => [
-      { id: "nyc", label: "Eastern Time – New York (UTC-5:00)" },
-      { id: "la", label: "Pacific Time – Los Angeles (UTC-8:00)" },
-      { id: "london", label: "London (UTC+0:00)" },
+      // North America
+      { id: "America/New_York", label: "New York (EST, UTC-5)" },
+      { id: "America/Chicago", label: "Chicago (CST, UTC-6)" },
+      { id: "America/Denver", label: "Denver (MST, UTC-7)" },
+      { id: "America/Los_Angeles", label: "Los Angeles (PST, UTC-8)" },
+      { id: "America/Anchorage", label: "Anchorage (AKST, UTC-9)" },
+      { id: "Pacific/Honolulu", label: "Honolulu (HST, UTC-10)" },
+      { id: "America/Phoenix", label: "Phoenix (MST, UTC-7)" },
+      { id: "America/Toronto", label: "Toronto (EST, UTC-5)" },
+      { id: "America/Vancouver", label: "Vancouver (PST, UTC-8)" },
+      { id: "America/Montreal", label: "Montreal (EST, UTC-5)" },
+      { id: "America/Mexico_City", label: "Mexico City (CST, UTC-6)" },
+      // South America
+      { id: "America/Sao_Paulo", label: "São Paulo (BRT, UTC-3)" },
+      { id: "America/Buenos_Aires", label: "Buenos Aires (ART, UTC-3)" },
+      { id: "America/Bogota", label: "Bogotá (COT, UTC-5)" },
+      { id: "America/Lima", label: "Lima (PET, UTC-5)" },
+      { id: "America/Santiago", label: "Santiago (CLT, UTC-3)" },
+      // Europe
+      { id: "Europe/London", label: "London (GMT, UTC+0)" },
+      { id: "Europe/Paris", label: "Paris (CET, UTC+1)" },
+      { id: "Europe/Berlin", label: "Berlin (CET, UTC+1)" },
+      { id: "Europe/Madrid", label: "Madrid (CET, UTC+1)" },
+      { id: "Europe/Rome", label: "Rome (CET, UTC+1)" },
+      { id: "Europe/Amsterdam", label: "Amsterdam (CET, UTC+1)" },
+      { id: "Europe/Brussels", label: "Brussels (CET, UTC+1)" },
+      { id: "Europe/Vienna", label: "Vienna (CET, UTC+1)" },
+      { id: "Europe/Zurich", label: "Zurich (CET, UTC+1)" },
+      { id: "Europe/Stockholm", label: "Stockholm (CET, UTC+1)" },
+      { id: "Europe/Oslo", label: "Oslo (CET, UTC+1)" },
+      { id: "Europe/Copenhagen", label: "Copenhagen (CET, UTC+1)" },
+      { id: "Europe/Helsinki", label: "Helsinki (EET, UTC+2)" },
+      { id: "Europe/Athens", label: "Athens (EET, UTC+2)" },
+      { id: "Europe/Istanbul", label: "Istanbul (TRT, UTC+3)" },
+      { id: "Europe/Moscow", label: "Moscow (MSK, UTC+3)" },
+      { id: "Europe/Warsaw", label: "Warsaw (CET, UTC+1)" },
+      { id: "Europe/Prague", label: "Prague (CET, UTC+1)" },
+      { id: "Europe/Dublin", label: "Dublin (GMT, UTC+0)" },
+      { id: "Europe/Lisbon", label: "Lisbon (WET, UTC+0)" },
+      // Middle East
+      { id: "Asia/Dubai", label: "Dubai (GST, UTC+4)" },
+      { id: "Asia/Riyadh", label: "Riyadh (AST, UTC+3)" },
+      { id: "Asia/Tehran", label: "Tehran (IRST, UTC+3:30)" },
+      { id: "Asia/Jerusalem", label: "Jerusalem (IST, UTC+2)" },
+      { id: "Asia/Kuwait", label: "Kuwait (AST, UTC+3)" },
+      { id: "Asia/Qatar", label: "Doha (AST, UTC+3)" },
+      // Asia
+      { id: "Asia/Tokyo", label: "Tokyo (JST, UTC+9)" },
+      { id: "Asia/Shanghai", label: "Shanghai (CST, UTC+8)" },
+      { id: "Asia/Hong_Kong", label: "Hong Kong (HKT, UTC+8)" },
+      { id: "Asia/Singapore", label: "Singapore (SGT, UTC+8)" },
+      { id: "Asia/Seoul", label: "Seoul (KST, UTC+9)" },
+      { id: "Asia/Taipei", label: "Taipei (CST, UTC+8)" },
+      { id: "Asia/Bangkok", label: "Bangkok (ICT, UTC+7)" },
+      { id: "Asia/Jakarta", label: "Jakarta (WIB, UTC+7)" },
+      { id: "Asia/Manila", label: "Manila (PHT, UTC+8)" },
+      { id: "Asia/Kuala_Lumpur", label: "Kuala Lumpur (MYT, UTC+8)" },
+      { id: "Asia/Ho_Chi_Minh", label: "Ho Chi Minh City (ICT, UTC+7)" },
+      { id: "Asia/Kolkata", label: "Mumbai / Delhi (IST, UTC+5:30)" },
+      { id: "Asia/Karachi", label: "Karachi (PKT, UTC+5)" },
+      { id: "Asia/Dhaka", label: "Dhaka (BST, UTC+6)" },
+      // Oceania
+      { id: "Australia/Sydney", label: "Sydney (AEDT, UTC+11)" },
+      { id: "Australia/Melbourne", label: "Melbourne (AEDT, UTC+11)" },
+      { id: "Australia/Brisbane", label: "Brisbane (AEST, UTC+10)" },
+      { id: "Australia/Perth", label: "Perth (AWST, UTC+8)" },
+      { id: "Australia/Adelaide", label: "Adelaide (ACDT, UTC+10:30)" },
+      { id: "Pacific/Auckland", label: "Auckland (NZDT, UTC+13)" },
+      { id: "Pacific/Fiji", label: "Fiji (FJT, UTC+12)" },
+      // Africa
+      { id: "Africa/Cairo", label: "Cairo (EET, UTC+2)" },
+      { id: "Africa/Johannesburg", label: "Johannesburg (SAST, UTC+2)" },
+      { id: "Africa/Lagos", label: "Lagos (WAT, UTC+1)" },
+      { id: "Africa/Nairobi", label: "Nairobi (EAT, UTC+3)" },
+      { id: "Africa/Casablanca", label: "Casablanca (WET, UTC+0)" },
     ],
     [],
   );
@@ -118,7 +190,7 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
   const [llmModelId, setLlmModelId] = useState("gpt-4.1");
   const [agentSpeaksFirst, setAgentSpeaksFirst] = useState(false);
   const [firstMessage, setFirstMessage] = useState("");
-  const [timeZoneId, setTimeZoneId] = useState("nyc");
+  const [timeZoneId, setTimeZoneId] = useState("America/New_York");
   const [systemPrompt, setSystemPrompt] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -157,7 +229,7 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
     setLlmModelId(agent.llmModelId ?? (llmModelItemsByProviderId[agent.llmProviderId ?? "openai"]?.[0]?.id ?? ""));
     setAgentSpeaksFirst(Boolean(agent.agentSpeaksFirst));
     setFirstMessage(agent.firstMessage ?? "");
-    setTimeZoneId(agent.timeZoneId ?? "nyc");
+    setTimeZoneId(agent.timeZoneId ?? "America/New_York");
     setSystemPrompt(agent.systemPrompt ?? "");
   }, [agent, llmModelItemsByProviderId, selectedProjectId]);
 
@@ -173,7 +245,7 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
       llmModelId !== (agent.llmModelId ?? "gpt-4.1") ||
       agentSpeaksFirst !== Boolean(agent.agentSpeaksFirst) ||
       firstMessage !== (agent.firstMessage ?? "") ||
-      timeZoneId !== (agent.timeZoneId ?? "nyc") ||
+      timeZoneId !== (agent.timeZoneId ?? "America/New_York") ||
       systemPrompt !== (agent.systemPrompt ?? "")
     );
   })();
@@ -423,6 +495,8 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
                     setTimeZoneId(id);
                     if (agent) setDraft((d) => ({ ...d, timeZoneId: id }));
                   }}
+                  searchable
+                  searchPlaceholder="Search cities..."
                 />
               </Field>
             </div>

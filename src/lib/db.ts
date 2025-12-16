@@ -99,12 +99,21 @@ export type ApiKeys = {
   updatedAt?: unknown;
 };
 
+export type ToolDetails = {
+  toolName?: string;
+  input?: Record<string, unknown>;
+  output?: string;
+  error?: string;
+  serverUrl?: string;
+};
+
 export type ChatMessage = {
   id: string;
   sessionId: string;
   role: "user" | "assistant" | "tool";
   content: string;
   toolType?: "knowledge_search" | "knowledge_found" | "thinking" | "complete" | "mcp_call" | "mcp_result" | "mcp_error";
+  toolDetails?: ToolDetails;
   createdAt?: unknown;
 };
 
@@ -460,6 +469,7 @@ export async function addChatMessage(
   role: "user" | "assistant" | "tool",
   content: string,
   toolType?: "knowledge_search" | "knowledge_found" | "thinking" | "complete" | "mcp_call" | "mcp_result" | "mcp_error",
+  toolDetails?: ToolDetails,
 ) {
   const messageData: Record<string, unknown> = {
     sessionId,
@@ -469,6 +479,9 @@ export async function addChatMessage(
   };
   if (toolType) {
     messageData.toolType = toolType;
+  }
+  if (toolDetails) {
+    messageData.toolDetails = toolDetails;
   }
   const messageDoc = await addDoc(collection(firebaseDb, "chatMessages"), messageData);
   await updateDoc(doc(firebaseDb, "chatSessions", sessionId), {

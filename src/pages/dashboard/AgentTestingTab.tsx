@@ -55,6 +55,14 @@ function CheckIcon() {
   );
 }
 
+function ChevronRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 function BrainIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -70,15 +78,17 @@ export type AgentTestingTabProps = {
   projectId: string;
 };
 
-// Map timezone IDs to IANA timezone names
-const timezoneMap: Record<string, string> = {
+// Legacy timezone ID mapping (for backwards compatibility)
+const legacyTimezoneMap: Record<string, string> = {
   nyc: "America/New_York",
   la: "America/Los_Angeles",
   london: "Europe/London",
 };
 
 function getCurrentDateTimeString(timeZoneId?: string): string {
-  const tz = timezoneMap[timeZoneId ?? "nyc"] ?? "America/New_York";
+  // Support both legacy IDs (nyc, la, london) and IANA IDs (America/New_York, etc.)
+  const inputId = timeZoneId ?? "America/New_York";
+  const tz = legacyTimezoneMap[inputId] ?? inputId;
   const now = new Date();
 
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -119,6 +129,7 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [projectTools, setProjectTools] = useState<Tool[]>([]);
+  const [expandedToolMessages, setExpandedToolMessages] = useState<Set<string>>(new Set());
 
   // Subscribe to project tools
   useEffect(() => {
@@ -326,9 +337,11 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
 
     // Add MCP tools (sanitize schema for Gemini)
     for (const mcpTool of getAgentMcpTools()) {
+      console.log("[MCP Tool] Original schema:", JSON.stringify(mcpTool.definition.inputSchema, null, 2));
       const sanitizedParams = mcpTool.definition.inputSchema
         ? sanitizeSchemaForGemini(mcpTool.definition.inputSchema as Record<string, unknown>)
         : { type: "object", properties: {} };
+      console.log("[MCP Tool] Sanitized schema:", JSON.stringify(sanitizedParams, null, 2));
 
       functionDeclarations.push({
         name: mcpTool.definition.name,
@@ -484,14 +497,25 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
             toolResult = knowledgeContent || "No documents found in knowledge base.";
           } else {
             // MCP tool call
-            await addChatMessage(activeSessionId, "tool", `Calling ${toolName}...`, "mcp_call");
+            const mcpTool = getAgentMcpTools().find(t => t.definition.name === toolName);
 
             try {
               toolResult = await executeMcpTool(toolName, toolArgs);
-              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result");
+              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result", {
+                toolName,
+                input: toolArgs,
+                output: toolResult,
+                serverUrl: mcpTool?.serverUrl,
+              });
             } catch (err) {
-              toolResult = `Error calling tool: ${err instanceof Error ? err.message : "Unknown error"}`;
-              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${err instanceof Error ? err.message : "Unknown error"}`, "mcp_error");
+              const errorMsg = err instanceof Error ? err.message : "Unknown error";
+              toolResult = `Error calling tool: ${errorMsg}`;
+              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${errorMsg}`, "mcp_error", {
+                toolName,
+                input: toolArgs,
+                error: errorMsg,
+                serverUrl: mcpTool?.serverUrl,
+              });
             }
           }
 
@@ -591,14 +615,25 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
             toolResult = knowledgeContent || "No documents found in knowledge base.";
           } else {
             // MCP tool call
-            await addChatMessage(activeSessionId, "tool", `Calling ${toolName}...`, "mcp_call");
+            const mcpTool = getAgentMcpTools().find(t => t.definition.name === toolName);
 
             try {
               toolResult = await executeMcpTool(toolName, toolArgs);
-              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result");
+              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result", {
+                toolName,
+                input: toolArgs,
+                output: toolResult,
+                serverUrl: mcpTool?.serverUrl,
+              });
             } catch (err) {
-              toolResult = `Error calling tool: ${err instanceof Error ? err.message : "Unknown error"}`;
-              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${err instanceof Error ? err.message : "Unknown error"}`, "mcp_error");
+              const errorMsg = err instanceof Error ? err.message : "Unknown error";
+              toolResult = `Error calling tool: ${errorMsg}`;
+              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${errorMsg}`, "mcp_error", {
+                toolName,
+                input: toolArgs,
+                error: errorMsg,
+                serverUrl: mcpTool?.serverUrl,
+              });
             }
           }
 
@@ -716,14 +751,25 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
             toolResult = knowledgeContent || "No documents found in knowledge base.";
           } else {
             // MCP tool call
-            await addChatMessage(activeSessionId, "tool", `Calling ${toolName}...`, "mcp_call");
+            const mcpTool = getAgentMcpTools().find(t => t.definition.name === toolName);
 
             try {
               toolResult = await executeMcpTool(toolName, toolArgs);
-              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result");
+              await addChatMessage(activeSessionId, "tool", `${toolName} completed`, "mcp_result", {
+                toolName,
+                input: toolArgs,
+                output: toolResult,
+                serverUrl: mcpTool?.serverUrl,
+              });
             } catch (err) {
-              toolResult = `Error calling tool: ${err instanceof Error ? err.message : "Unknown error"}`;
-              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${err instanceof Error ? err.message : "Unknown error"}`, "mcp_error");
+              const errorMsg = err instanceof Error ? err.message : "Unknown error";
+              toolResult = `Error calling tool: ${errorMsg}`;
+              await addChatMessage(activeSessionId, "tool", `${toolName} failed: ${errorMsg}`, "mcp_error", {
+                toolName,
+                input: toolArgs,
+                error: errorMsg,
+                serverUrl: mcpTool?.serverUrl,
+              });
             }
           }
 
@@ -841,19 +887,78 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
                   Send a message to start the conversation
                 </div>
               ) : (
-                messages.map((msg) => (
-                  msg.role === "tool" ? (
-                    <div key={msg.id} className={`ui-tool-activity ${msg.toolType === "mcp_error" ? "ui-tool-activity--error" : "ui-tool-activity--done"}`}>
-                      <span className="ui-tool-activity__icon">
-                        {msg.toolType === "knowledge_search" && <SearchIcon />}
-                        {msg.toolType === "knowledge_found" && <BookIcon />}
-                        {msg.toolType === "thinking" && <BrainIcon />}
-                        {(msg.toolType === "mcp_call" || msg.toolType === "mcp_result" || msg.toolType === "mcp_error") && <ToolIcon />}
-                      </span>
-                      <span className="ui-tool-activity__message">{msg.content}</span>
-                      <span className="ui-tool-activity__check">
-                        {msg.toolType !== "mcp_error" && <CheckIcon />}
-                      </span>
+                messages.map((msg) => {
+                  const isExpanded = expandedToolMessages.has(msg.id);
+                  const hasDetails = msg.toolDetails && (msg.toolDetails.input || msg.toolDetails.output || msg.toolDetails.error);
+                  const toggleExpand = () => {
+                    setExpandedToolMessages(prev => {
+                      const next = new Set(prev);
+                      if (next.has(msg.id)) {
+                        next.delete(msg.id);
+                      } else {
+                        next.add(msg.id);
+                      }
+                      return next;
+                    });
+                  };
+
+                  return msg.role === "tool" ? (
+                    <div
+                      key={msg.id}
+                      className={`ui-tool-activity ${msg.toolType === "mcp_error" ? "ui-tool-activity--error" : "ui-tool-activity--done"} ${hasDetails ? "ui-tool-activity--expandable" : ""} ${isExpanded ? "ui-tool-activity--expanded" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="ui-tool-activity__header"
+                        onClick={hasDetails ? toggleExpand : undefined}
+                        disabled={!hasDetails}
+                      >
+                        <span className="ui-tool-activity__icon">
+                          {msg.toolType === "knowledge_search" && <SearchIcon />}
+                          {msg.toolType === "knowledge_found" && <BookIcon />}
+                          {msg.toolType === "thinking" && <BrainIcon />}
+                          {(msg.toolType === "mcp_call" || msg.toolType === "mcp_result" || msg.toolType === "mcp_error") && <ToolIcon />}
+                        </span>
+                        <span className="ui-tool-activity__message">{msg.content}</span>
+                        {hasDetails && (
+                          <span className={`ui-tool-activity__chevron ${isExpanded ? "is-expanded" : ""}`}>
+                            <ChevronRightIcon />
+                          </span>
+                        )}
+                        {!hasDetails && msg.toolType !== "mcp_error" && (
+                          <span className="ui-tool-activity__check">
+                            <CheckIcon />
+                          </span>
+                        )}
+                      </button>
+                      {isExpanded && msg.toolDetails && (
+                        <div className="ui-tool-activity__details">
+                          {msg.toolDetails.input && Object.keys(msg.toolDetails.input).length > 0 && (
+                            <div className="ui-tool-activity__detail-section">
+                              <div className="ui-tool-activity__detail-label">Input</div>
+                              <pre className="ui-tool-activity__detail-content">
+                                {JSON.stringify(msg.toolDetails.input, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {msg.toolDetails.output && (
+                            <div className="ui-tool-activity__detail-section">
+                              <div className="ui-tool-activity__detail-label">Output</div>
+                              <pre className="ui-tool-activity__detail-content">
+                                {msg.toolDetails.output}
+                              </pre>
+                            </div>
+                          )}
+                          {msg.toolDetails.error && (
+                            <div className="ui-tool-activity__detail-section ui-tool-activity__detail-section--error">
+                              <div className="ui-tool-activity__detail-label">Error</div>
+                              <pre className="ui-tool-activity__detail-content">
+                                {msg.toolDetails.error}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div
@@ -865,8 +970,8 @@ export function AgentTestingTab({ agent, projectId }: AgentTestingTabProps) {
                       </div>
                       <div className="ui-chat-message__time">{formatTime(msg.createdAt)}</div>
                     </div>
-                  )
-                ))
+                  );
+                })
               )}
               {sending && (
                 <div className="ui-chat-message ui-chat-message--assistant">
