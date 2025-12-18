@@ -57,6 +57,8 @@ export type Agent = {
   systemPrompt?: string;
   timeZoneId?: string;
   tools?: AgentToolRef[];
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
 };
 
 export type Template = {
@@ -101,6 +103,7 @@ export type ApiKeys = {
   twilioAccountSid?: string;
   twilioAuthToken?: string;
   twilioPhoneNumber?: string;
+  twilioWhatsappNumber?: string;
   twilioSendgridApiKey?: string;
   twilioSendgridFromEmail?: string;
   updatedAt?: unknown;

@@ -60,9 +60,15 @@ const TWILIO_PROVIDERS: ProviderConfig[] = [
   },
   {
     id: "twilioPhoneNumber",
-    label: "Twilio Phone Number",
+    label: "Twilio SMS Number",
     placeholder: "+1234567890",
     hint: "Your Twilio phone number for sending SMS (E.164 format)",
+  },
+  {
+    id: "twilioWhatsappNumber",
+    label: "Twilio WhatsApp Number",
+    placeholder: "+1234567890",
+    hint: "Your Twilio WhatsApp-enabled number (E.164 format). Set up at twilio.com/whatsapp",
   },
   {
     id: "twilioSendgridApiKey",

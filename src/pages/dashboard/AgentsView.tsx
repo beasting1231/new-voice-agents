@@ -194,6 +194,8 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
   const [firstMessage, setFirstMessage] = useState("");
   const [timeZoneId, setTimeZoneId] = useState("America/New_York");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState("");
 
   const [saving, setSaving] = useState(false);
 
@@ -233,6 +235,8 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
     setFirstMessage(agent.firstMessage ?? "");
     setTimeZoneId(agent.timeZoneId ?? "America/New_York");
     setSystemPrompt(agent.systemPrompt ?? "");
+    setWhatsappEnabled(Boolean(agent.whatsappEnabled));
+    setWhatsappNumber(agent.whatsappNumber ?? "");
   }, [agent, llmModelItemsByProviderId, selectedProjectId]);
 
   const agentName = draft.name ?? agent?.name ?? "Agent";
@@ -248,7 +252,9 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
       agentSpeaksFirst !== Boolean(agent.agentSpeaksFirst) ||
       firstMessage !== (agent.firstMessage ?? "") ||
       timeZoneId !== (agent.timeZoneId ?? "America/New_York") ||
-      systemPrompt !== (agent.systemPrompt ?? "")
+      systemPrompt !== (agent.systemPrompt ?? "") ||
+      whatsappEnabled !== Boolean(agent.whatsappEnabled) ||
+      whatsappNumber !== (agent.whatsappNumber ?? "")
     );
   })();
 
@@ -353,12 +359,14 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
                     name: agentName,
                     mode: modeId,
                     voiceId: modeId === "voice" ? voiceId : undefined,
-                    llmProviderId: modeId === "text" ? llmProviderId : undefined,
-                    llmModelId: modeId === "text" ? llmModelId : undefined,
+                    llmProviderId: llmProviderId,
+                    llmModelId: llmModelId,
                     agentSpeaksFirst,
                     firstMessage: agentSpeaksFirst ? firstMessage : undefined,
                     systemPrompt,
                     timeZoneId,
+                    whatsappEnabled,
+                    whatsappNumber: whatsappEnabled ? whatsappNumber : undefined,
                   });
                   setDbError(null);
                 } catch (err) {
@@ -501,6 +509,69 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
                   searchPlaceholder="Search cities..."
                 />
               </Field>
+
+              <div className="ui-form__divider" />
+
+              <div className="ui-form__section">
+                <div className="ui-form__section-header">
+                  <div className="ui-form__section-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" fill="currentColor"/>
+                      <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <div className="ui-form__section-title">WhatsApp Integration</div>
+                </div>
+
+                <div className="ui-form__row">
+                  <Switch
+                    checked={whatsappEnabled}
+                    onChangeChecked={(v) => {
+                      setWhatsappEnabled(v);
+                      if (agent) setDraft((d) => ({ ...d, whatsappEnabled: v }));
+                    }}
+                    label="Enable WhatsApp"
+                  />
+                </div>
+
+                {whatsappEnabled && (
+                  <>
+                    <Field
+                      label="WhatsApp Number"
+                      hint="The Twilio WhatsApp number this agent will respond to (must match API Keys)"
+                    >
+                      <input
+                        className="ui-input"
+                        value={whatsappNumber}
+                        onChange={(e) => {
+                          setWhatsappNumber(e.target.value);
+                          if (agent) setDraft((d) => ({ ...d, whatsappNumber: e.target.value }));
+                        }}
+                        placeholder="+1234567890"
+                      />
+                    </Field>
+
+                    <div className="ui-whatsapp-info">
+                      <div className="ui-whatsapp-info__icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M12 7v6M12 16v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                      <div className="ui-whatsapp-info__content">
+                        <strong>Setup Instructions:</strong>
+                        <ol>
+                          <li>Configure your Twilio WhatsApp number in <strong>API Keys</strong></li>
+                          <li>In Twilio Console, set the webhook URL to:<br />
+                            <code>https://bastingvoice.web.app/api/whatsapp</code>
+                          </li>
+                          <li>Users can now message this WhatsApp number to chat with the agent</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           ) : tabId === "testing" ? (
             agent.mode === "text" || !agent.mode ? (
