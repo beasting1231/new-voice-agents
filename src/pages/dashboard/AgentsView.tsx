@@ -86,6 +86,8 @@ export function AgentsView({ selectedProjectId, selectedSubItemId, agentCount, t
         { id: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
       ],
       google: [
+        { id: "gemini-3.0-flash", label: "Gemini 3.0 Flash" },
+        { id: "gemini-3.0-pro", label: "Gemini 3.0 Pro" },
         { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
         { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
         { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },

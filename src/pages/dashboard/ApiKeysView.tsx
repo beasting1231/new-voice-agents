@@ -45,6 +45,39 @@ const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
+const TWILIO_PROVIDERS: ProviderConfig[] = [
+  {
+    id: "twilioAccountSid",
+    label: "Twilio Account SID",
+    placeholder: "AC...",
+    hint: "Your Twilio Account SID from console.twilio.com",
+  },
+  {
+    id: "twilioAuthToken",
+    label: "Twilio Auth Token",
+    placeholder: "",
+    hint: "Your Twilio Auth Token from console.twilio.com",
+  },
+  {
+    id: "twilioPhoneNumber",
+    label: "Twilio Phone Number",
+    placeholder: "+1234567890",
+    hint: "Your Twilio phone number for sending SMS (E.164 format)",
+  },
+  {
+    id: "twilioSendgridApiKey",
+    label: "SendGrid API Key",
+    placeholder: "SG...",
+    hint: "Your SendGrid API key for sending emails. Get it at sendgrid.com",
+  },
+  {
+    id: "twilioSendgridFromEmail",
+    label: "SendGrid From Email",
+    placeholder: "noreply@yourdomain.com",
+    hint: "Verified sender email address for SendGrid",
+  },
+];
+
 function EyeIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -108,8 +141,10 @@ export function ApiKeysView({ selectedProjectId }: ApiKeysViewProps) {
     setDraft((d) => ({ ...d, [id]: value }));
   };
 
+  const allProviders = [...PROVIDERS, ...TWILIO_PROVIDERS];
+
   const dirty = (() => {
-    for (const provider of PROVIDERS) {
+    for (const provider of allProviders) {
       const draftVal = draft[provider.id];
       if (draftVal !== undefined && draftVal !== (apiKeys?.[provider.id] ?? "")) {
         return true;
@@ -123,7 +158,7 @@ export function ApiKeysView({ selectedProjectId }: ApiKeysViewProps) {
     setSaving(true);
     try {
       const updates: Partial<Omit<ApiKeys, "id" | "projectId" | "updatedAt">> = {};
-      for (const provider of PROVIDERS) {
+      for (const provider of allProviders) {
         const draftVal = draft[provider.id];
         if (draftVal !== undefined) {
           updates[provider.id] = draftVal;
@@ -164,41 +199,87 @@ export function ApiKeysView({ selectedProjectId }: ApiKeysViewProps) {
             Enter your API keys for each provider. Keys are stored securely and used to make calls to each service.
           </p>
 
-          <div className="ui-api-keys-form">
-            {PROVIDERS.map((provider) => {
-              const value = getValue(provider.id);
-              const isVisible = visibleFields.has(provider.id);
+          <div className="ui-api-keys-section">
+            <h3 className="ui-api-keys-section__title">AI Providers</h3>
+            <div className="ui-api-keys-form">
+              {PROVIDERS.map((provider) => {
+                const value = getValue(provider.id);
+                const isVisible = visibleFields.has(provider.id);
 
-              return (
-                <div key={provider.id} className="ui-api-key-field">
-                  <div className="ui-api-key-field__header">
-                    <label className="ui-api-key-field__label" htmlFor={`api-key-${provider.id}`}>
-                      {provider.label}
-                    </label>
+                return (
+                  <div key={provider.id} className="ui-api-key-field">
+                    <div className="ui-api-key-field__header">
+                      <label className="ui-api-key-field__label" htmlFor={`api-key-${provider.id}`}>
+                        {provider.label}
+                      </label>
+                    </div>
+                    <div className="ui-api-key-field__input-wrap">
+                      <input
+                        id={`api-key-${provider.id}`}
+                        type={isVisible ? "text" : "password"}
+                        className="ui-input ui-api-key-field__input"
+                        value={value}
+                        onChange={(e) => handleChange(provider.id, e.target.value)}
+                        placeholder={provider.placeholder}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        className="ui-api-key-field__toggle"
+                        onClick={() => toggleVisibility(provider.id)}
+                        title={isVisible ? "Hide key" : "Show key"}
+                      >
+                        {isVisible ? <EyeOffIcon /> : <EyeIcon />}
+                      </button>
+                    </div>
+                    <div className="ui-api-key-field__hint">{provider.hint}</div>
                   </div>
-                  <div className="ui-api-key-field__input-wrap">
-                    <input
-                      id={`api-key-${provider.id}`}
-                      type={isVisible ? "text" : "password"}
-                      className="ui-input ui-api-key-field__input"
-                      value={value}
-                      onChange={(e) => handleChange(provider.id, e.target.value)}
-                      placeholder={provider.placeholder}
-                      autoComplete="off"
-                    />
-                    <button
-                      type="button"
-                      className="ui-api-key-field__toggle"
-                      onClick={() => toggleVisibility(provider.id)}
-                      title={isVisible ? "Hide key" : "Show key"}
-                    >
-                      {isVisible ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="ui-api-keys-section">
+            <h3 className="ui-api-keys-section__title">Notifications (Twilio / SendGrid)</h3>
+            <p className="ui-api-keys-section__description">
+              Configure Twilio for SMS and SendGrid for email notifications.
+            </p>
+            <div className="ui-api-keys-form">
+              {TWILIO_PROVIDERS.map((provider) => {
+                const value = getValue(provider.id);
+                const isVisible = visibleFields.has(provider.id);
+
+                return (
+                  <div key={provider.id} className="ui-api-key-field">
+                    <div className="ui-api-key-field__header">
+                      <label className="ui-api-key-field__label" htmlFor={`api-key-${provider.id}`}>
+                        {provider.label}
+                      </label>
+                    </div>
+                    <div className="ui-api-key-field__input-wrap">
+                      <input
+                        id={`api-key-${provider.id}`}
+                        type={isVisible ? "text" : "password"}
+                        className="ui-input ui-api-key-field__input"
+                        value={value}
+                        onChange={(e) => handleChange(provider.id, e.target.value)}
+                        placeholder={provider.placeholder}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        className="ui-api-key-field__toggle"
+                        onClick={() => toggleVisibility(provider.id)}
+                        title={isVisible ? "Hide key" : "Show key"}
+                      >
+                        {isVisible ? <EyeOffIcon /> : <EyeIcon />}
+                      </button>
+                    </div>
+                    <div className="ui-api-key-field__hint">{provider.hint}</div>
                   </div>
-                  <div className="ui-api-key-field__hint">{provider.hint}</div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

@@ -80,12 +80,14 @@ export type Tool = {
   id: string;
   projectId: string;
   name: string;
-  type: "n8n" | "http" | "custom";
+  type: "n8n" | "http" | "custom" | "notification";
   createdAt?: unknown;
   updatedAt?: unknown;
   // n8n-specific fields
   serverUrl?: string;
   availableTools?: McpToolDefinition[];
+  // notification-specific fields
+  notificationChannel?: "sms" | "email";
 };
 
 export type ApiKeys = {
@@ -96,6 +98,11 @@ export type ApiKeys = {
   elevenlabs?: string;
   google?: string;
   deepgram?: string;
+  twilioAccountSid?: string;
+  twilioAuthToken?: string;
+  twilioPhoneNumber?: string;
+  twilioSendgridApiKey?: string;
+  twilioSendgridFromEmail?: string;
   updatedAt?: unknown;
 };
 
@@ -315,6 +322,7 @@ export async function createTool(
   config: {
     serverUrl?: string;
     availableTools?: McpToolDefinition[];
+    notificationChannel?: "sms" | "email";
   } = {},
 ) {
   const toolDoc = await addDoc(collection(firebaseDb, "tools"), {
@@ -323,6 +331,7 @@ export async function createTool(
     type,
     serverUrl: config.serverUrl,
     availableTools: config.availableTools,
+    notificationChannel: config.notificationChannel,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

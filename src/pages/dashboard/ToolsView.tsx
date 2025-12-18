@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { N8nToolConfig, type N8nToolConfiguration } from "./N8nToolConfig";
+import { NotificationToolConfig, type NotificationToolConfiguration } from "./NotificationToolConfig";
 import { Button, Field, Modal } from "../../components";
 import { McpClient, mcpManager, type McpTool, type McpToolResult } from "../../lib/mcp";
 import { updateTool, deleteTool, type Tool } from "../../lib/db";
@@ -11,6 +12,7 @@ export type ToolsViewProps = {
   tools?: Tool[];
   onCreateTool?: (type: string) => void;
   onSaveN8nTool?: (config: N8nToolConfiguration) => void;
+  onSaveNotificationTool?: (config: NotificationToolConfiguration) => void;
   onToolDeleted?: () => void;
 };
 
@@ -644,7 +646,173 @@ function ToolDetailView({ tool, onDelete }: { tool: Tool; onDelete?: () => void 
   );
 }
 
-export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN8nTool, onToolDeleted }: ToolsViewProps) {
+// Notification Tool Detail View Component
+function NotificationToolDetailView({ tool, onDelete }: { tool: Tool; onDelete?: () => void }) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = useCallback(async () => {
+    setDeleting(true);
+    try {
+      await deleteTool(tool.id);
+      onDelete?.();
+    } catch (err) {
+      console.error("Failed to delete tool:", err);
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  }, [tool.id, onDelete]);
+
+  const channel = tool.notificationChannel ?? "sms";
+
+  return (
+    <div className="ui-page">
+      <div className="ui-panel">
+        <div className="ui-panel__top">
+          <div className="ui-panel__title-block">
+            <div className="ui-panel__kicker">Send Notification</div>
+            <div className="ui-panel__title-row">
+              <div className="ui-panel__title">{tool.name}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDeleteConfirmOpen(true)}
+              style={{ color: "#ef4444" }}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+
+        <div className="ui-panel__body">
+          <div className="ui-notification-detail">
+            <div className="ui-notification-detail__section">
+              <div className="ui-notification-detail__label">Notification Channel</div>
+              <div className="ui-notification-detail__channels">
+                {channel === "sms" ? (
+                  <div className="ui-notification-detail__channel">
+                    <div className="ui-notification-detail__channel-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="5" y="4" width="14" height="17" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M9 21h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        <circle cx="12" cy="17" r="1" fill="currentColor" />
+                      </svg>
+                    </div>
+                    <div className="ui-notification-detail__channel-info">
+                      <div className="ui-notification-detail__channel-name">SMS (Twilio)</div>
+                      <div className="ui-notification-detail__channel-desc">Send text messages via Twilio</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ui-notification-detail__channel">
+                    <div className="ui-notification-detail__channel-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <div className="ui-notification-detail__channel-info">
+                      <div className="ui-notification-detail__channel-name">Email (SendGrid)</div>
+                      <div className="ui-notification-detail__channel-desc">Send emails via SendGrid</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="ui-notification-detail__section">
+              <div className="ui-notification-detail__label">Available Tools for Agents</div>
+              <div className="ui-notification-detail__tools">
+                {channel === "sms" ? (
+                  <div className="ui-notification-detail__tool">
+                    <div className="ui-notification-detail__tool-name">send_sms</div>
+                    <div className="ui-notification-detail__tool-desc">
+                      Send an SMS message to a phone number
+                    </div>
+                    <div className="ui-notification-detail__tool-params">
+                      <code>to</code> (string, required) - Phone number in E.164 format<br />
+                      <code>message</code> (string, required) - The message content
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ui-notification-detail__tool">
+                    <div className="ui-notification-detail__tool-name">send_email</div>
+                    <div className="ui-notification-detail__tool-desc">
+                      Send an email to a recipient
+                    </div>
+                    <div className="ui-notification-detail__tool-params">
+                      <code>to</code> (string, required) - Recipient email address<br />
+                      <code>subject</code> (string, required) - Email subject line<br />
+                      <code>body</code> (string, required) - Email body content
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="ui-notification-detail__section">
+              <div className="ui-notification-detail__label">Configuration</div>
+              <div className="ui-notification-detail__info-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 7v6M12 16v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span>
+                  {channel === "sms"
+                    ? <>API keys for <strong>Twilio</strong> must be configured in the <strong>API Keys</strong> section for this tool to work.</>
+                    : <>API key for <strong>SendGrid</strong> must be configured in the <strong>API Keys</strong> section for this tool to work.</>
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Modal
+        open={deleteConfirmOpen}
+        title="Delete Notification Tool"
+        description={`Are you sure you want to delete "${tool.name}"? This action cannot be undone.`}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteConfirmOpen(false);
+        }}
+        footer={
+          <div className="ui-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDeleteConfirmOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{ backgroundColor: "#ef4444", borderColor: "#ef4444" }}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="ui-modal__field">
+          <div className="ui-modal__field-label">
+            This will permanently remove this notification tool.
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN8nTool, onSaveNotificationTool, onToolDeleted }: ToolsViewProps) {
   const [creatingToolType, setCreatingToolType] = useState<string | null>(null);
 
   // If creating an n8n tool, show the config UI
@@ -660,9 +828,25 @@ export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN
     );
   }
 
+  // If creating a notification tool, show the config UI
+  if (creatingToolType === "notification") {
+    return (
+      <NotificationToolConfig
+        onCancel={() => setCreatingToolType(null)}
+        onSave={(config) => {
+          onSaveNotificationTool?.(config);
+          setCreatingToolType(null);
+        }}
+      />
+    );
+  }
+
   // If a tool is selected, show tool detail view
   const selectedTool = tools.find((t) => t.id === selectedSubItemId);
   if (selectedTool) {
+    if (selectedTool.type === "notification") {
+      return <NotificationToolDetailView tool={selectedTool} onDelete={onToolDeleted} />;
+    }
     return <ToolDetailView tool={selectedTool} onDelete={onToolDeleted} />;
   }
 
@@ -682,8 +866,8 @@ export function ToolsView({ selectedSubItemId, tools = [], onCreateTool, onSaveN
             type="button"
             className="ui-tool-card"
             onClick={() => {
-              if (tool.id === "n8n") {
-                setCreatingToolType("n8n");
+              if (tool.id === "n8n" || tool.id === "notification") {
+                setCreatingToolType(tool.id);
               } else {
                 onCreateTool?.(tool.id);
               }

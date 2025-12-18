@@ -260,6 +260,16 @@ export function DashboardPage() {
                 setDbError(formatFirestoreError(err));
               }
             }}
+            onSaveNotificationTool={async (config) => {
+              try {
+                const toolId = await createTool(selectedProjectId, config.name, "notification", {
+                  notificationChannel: config.channel,
+                });
+                setActiveSubItemId(toolId);
+              } catch (err) {
+                setDbError(formatFirestoreError(err));
+              }
+            }}
             onToolDeleted={() => setActiveSubItemId(undefined)}
           />
         ) : activeItemId === "apiKeys" ? (
