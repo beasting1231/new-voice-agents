@@ -41,7 +41,10 @@ jobs:
         run: npm run build
         working-directory: ./functions
 
-      - name: Deploy to Firebase
+      - name: Create service account file
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/service-account.json
+
+      - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -50,4 +53,10 @@ jobs:
           projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
 
       - name: Deploy Functions
-        run: npx firebase-tools deploy --only functions --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}" --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: npx firebase-tools deploy --only functions --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: $HOME/service-account.json
+
+      - name: Cleanup service account file
+        if: always()
+        run: rm -f $HOME/service-account.json
