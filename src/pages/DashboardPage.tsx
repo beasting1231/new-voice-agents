@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Button,
   DashboardShell,
   Modal,
   SecondarySidebar,
   Sidebar,
+  type MobileView,
   type SecondarySidebarSectionId,
   type SidebarItemId,
 } from "../components";
@@ -37,6 +38,7 @@ export function DashboardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [activeItemId, setActiveItemId] = useState<SidebarItemId>("overview");
   const [activeSubItemId, setActiveSubItemId] = useState<string | undefined>(undefined);
+  const [mobileView, setMobileView] = useState<MobileView>("sidebar");
 
   const secondaryOpen = activeItemId !== "overview" && activeItemId !== "apiKeys";
   const computedSectionId = secondaryOpen ? (activeItemId as SecondarySidebarSectionId) : undefined;
@@ -96,6 +98,66 @@ export function DashboardPage() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<null | { kind: "agent" | "template"; id: string; name: string }>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Items that have a secondary sidebar
+  const hasSecondarySidebar = (itemId: SidebarItemId) =>
+    itemId !== "overview" && itemId !== "apiKeys";
+
+  // Get the display title for mobile header
+  const getMobileTitle = useCallback(() => {
+    if (mobileView === "sidebar") return "BS Voice Agents";
+    if (mobileView === "secondary") {
+      const titles: Record<SidebarItemId, string> = {
+        overview: "Overview",
+        agents: "Agents",
+        tools: "Tools",
+        phoneNumbers: "Phone Numbers",
+        apiKeys: "API Keys",
+        integrations: "Integrations",
+      };
+      return titles[activeItemId] || "BS Voice Agents";
+    }
+    // For content view, show the selected sub-item name or section name
+    if (activeSubItemId) {
+      const agent = agents.find(a => a.id === activeSubItemId);
+      if (agent) return agent.name;
+      const tool = tools.find(t => t.id === activeSubItemId);
+      if (tool) return tool.name;
+    }
+    return "Details";
+  }, [mobileView, activeItemId, activeSubItemId, agents, tools]);
+
+  // Handle mobile back navigation
+  const handleMobileBack = useCallback(() => {
+    if (mobileView === "content") {
+      // Go back to secondary if it exists, otherwise to sidebar
+      if (hasSecondarySidebar(activeItemId)) {
+        setMobileView("secondary");
+      } else {
+        setMobileView("sidebar");
+      }
+    } else if (mobileView === "secondary") {
+      setMobileView("sidebar");
+    }
+  }, [mobileView, activeItemId]);
+
+  // Handle sidebar item selection for mobile
+  const handleSidebarItemSelect = useCallback((itemId: SidebarItemId) => {
+    setActiveItemId(itemId);
+    setActiveSubItemId(undefined);
+    // On mobile, navigate to secondary or content based on whether item has secondary
+    if (hasSecondarySidebar(itemId)) {
+      setMobileView("secondary");
+    } else {
+      setMobileView("content");
+    }
+  }, []);
+
+  // Handle secondary sidebar item selection for mobile
+  const handleSecondaryItemSelect = useCallback((subItemId: string) => {
+    setActiveSubItemId(subItemId);
+    setMobileView("content");
+  }, []);
 
   useEffect(() => {
     setCreateError(null);
@@ -158,10 +220,7 @@ export function DashboardPage() {
                 : undefined
             }
             activeItemId={activeItemId}
-            onSelectItemId={(id) => {
-              setActiveItemId(id);
-              setActiveSubItemId(undefined);
-            }}
+            onSelectItemId={handleSidebarItemSelect}
             signedInAs={user?.displayName ?? user?.email ?? "Signed in"}
             onLogout={async () => {
               await signOut();
@@ -178,12 +237,15 @@ export function DashboardPage() {
           />
         }
         secondaryOpen={secondaryOpen}
+        mobileView={mobileView}
+        mobileTitle={getMobileTitle()}
+        onMobileBack={handleMobileBack}
         secondarySidebar={
           <SecondarySidebar
             sectionId={computedSectionId ?? lastSecondarySectionId}
             open={secondaryOpen}
             activeSubItemId={activeSubItemId}
-            onSelectSubItemId={setActiveSubItemId}
+            onSelectSubItemId={handleSecondaryItemSelect}
             agents={agents.map((a) => ({ id: a.id, label: a.name }))}
             templates={templates.map((t) => ({ id: t.id, label: t.name }))}
             tools={tools.map((t) => ({ id: t.id, label: t.name }))}

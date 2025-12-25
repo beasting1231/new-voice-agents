@@ -2933,3 +2933,203 @@ body {
   color: #0a0a0a;
   word-break: break-all;
 }
+
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
+
+/* Mobile Header */
+.ui-mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+}
+
+.ui-mobile-header__back {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  color: rgba(10, 10, 10, 0.7);
+  margin-left: -8px;
+}
+
+.ui-mobile-header__back:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.ui-mobile-header__back:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.ui-mobile-header__title {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  color: rgba(10, 10, 10, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile breakpoint */
+@media (max-width: 768px) {
+  /* Show mobile header */
+  .ui-mobile-header {
+    display: flex;
+  }
+
+  /* Dashboard shell mobile layout */
+  .ui-dashboard-shell {
+    flex-direction: column;
+  }
+
+  .ui-dashboard-shell__sidebar,
+  .ui-dashboard-shell__secondary-wrap,
+  .ui-dashboard-shell__content {
+    display: none;
+    width: 100%;
+    flex: none;
+    border-right: none;
+  }
+
+  /* Mobile view states */
+  .ui-dashboard-shell.mobile-sidebar .ui-dashboard-shell__sidebar {
+    display: block;
+    padding-top: 56px;
+  }
+
+  .ui-dashboard-shell.mobile-secondary .ui-dashboard-shell__secondary-wrap {
+    display: block;
+    width: 100%;
+    padding-top: 56px;
+    overflow: visible;
+  }
+
+  .ui-dashboard-shell.mobile-secondary .ui-dashboard-shell__secondary {
+    width: 100%;
+  }
+
+  .ui-dashboard-shell.mobile-content .ui-dashboard-shell__content {
+    display: block;
+    padding-top: 56px;
+  }
+
+  /* Disable secondary sidebar animation on mobile */
+  .ui-dashboard-shell__secondary-wrap {
+    transition: none;
+  }
+
+  /* Secondary sidebar full width */
+  .ui-secondary-sidebar {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* Sidebar items touch-friendly */
+  .ui-sidebar__item {
+    min-height: 48px;
+  }
+
+  .ui-secondary-sidebar__subitem,
+  .ui-secondary-sidebar__group,
+  .ui-secondary-sidebar__item {
+    min-height: 48px;
+  }
+
+  /* Page content padding adjustments */
+  .ui-page {
+    padding: 20px 16px;
+  }
+
+  .ui-dashboard-content {
+    padding: 20px 16px;
+  }
+
+  /* Panel adjustments */
+  .ui-panel {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .ui-panel__top {
+    padding: 8px 10px 4px;
+  }
+
+  .ui-panel__body {
+    padding: 8px 10px 10px;
+  }
+
+  /* Testing tab responsive */
+  .ui-testing-tab {
+    flex-direction: column;
+    height: auto;
+    max-height: none;
+  }
+
+  .ui-testing-logs {
+    width: 100%;
+    max-height: 300px;
+  }
+
+  .ui-testing-chat {
+    min-height: 400px;
+  }
+
+  /* Tool cards responsive */
+  .ui-tool-cards {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tool detail responsive */
+  .ui-tool-detail {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .ui-tool-detail__logs {
+    width: 100%;
+  }
+
+  /* Modal responsive */
+  .ui-modal {
+    padding: 16px;
+  }
+
+  .ui-modal__panel {
+    max-width: 100%;
+    border-radius: 16px;
+  }
+
+  /* Empty state responsive */
+  .ui-empty-state {
+    padding: 48px 24px;
+    min-height: 300px;
+  }
+
+  /* Agent tools dropdown responsive */
+  .ui-agent-tools__dropdown-panel {
+    width: calc(100vw - 32px);
+    right: -8px;
+  }
+
+  /* Select menu responsive */
+  .ui-select-menu__panel {
+    max-height: 60vh;
+  }
+}

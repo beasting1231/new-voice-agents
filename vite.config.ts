@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import type { IncomingMessage, ServerResponse } from 'http'
 
 // Custom plugin to proxy MCP requests (handles CORS for n8n connections)
@@ -144,5 +145,48 @@ function mcpProxyPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), mcpProxyPlugin()],
+  plugins: [
+    react(),
+    mcpProxyPlugin(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['vite.svg', 'icons/*.png'],
+      manifest: {
+        name: 'BS Voice Agents',
+        short_name: 'BS Agents',
+        description: 'AI Voice Agent Management Platform',
+        theme_color: '#1a1a2e',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        icons: [
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'firebase-cache',
+              networkTimeoutSeconds: 10,
+            },
+          },
+        ],
+      },
+    }),
+  ],
 })

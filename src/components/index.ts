@@ -4,6 +4,7 @@ export { Card } from "./Card";
 export type { CardProps } from "./Card";
 export { AppShell } from "./Layout";
 export { DashboardShell } from "./Layout";
+export type { MobileView } from "./Layout";
 export { Sidebar } from "./Sidebar";
 export type { SidebarItemId, SidebarProject, SidebarProps } from "./Sidebar";
 export { ProjectSelect } from "./ProjectSelect";
