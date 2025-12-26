@@ -363,11 +363,11 @@ body {
 .ui-login-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .ui-login-logo img {
-  height: 48px;
+  height: 44px;
   width: auto;
 }
 
