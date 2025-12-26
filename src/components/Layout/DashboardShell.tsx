@@ -8,7 +8,6 @@ export type DashboardShellProps = {
   secondaryOpen?: boolean;
   children: ReactNode;
   mobileView?: MobileView;
-  mobileTitle?: string;
   onMobileBack?: () => void;
 };
 
@@ -26,7 +25,6 @@ export function DashboardShell({
   secondaryOpen = false,
   children,
   mobileView = "sidebar",
-  mobileTitle = "BS Voice Agents",
   onMobileBack,
 }: DashboardShellProps) {
   const showBackButton = mobileView !== "sidebar";

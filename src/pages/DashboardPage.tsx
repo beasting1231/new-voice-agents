@@ -99,30 +99,6 @@ export function DashboardPage() {
   const hasSecondarySidebar = (itemId: SidebarItemId) =>
     itemId !== "overview" && itemId !== "apiKeys";
 
-  // Get the display title for mobile header
-  const getMobileTitle = useCallback(() => {
-    if (mobileView === "sidebar") return "BS Voice Agents";
-    if (mobileView === "secondary") {
-      const titles: Record<SidebarItemId, string> = {
-        overview: "Overview",
-        agents: "Agents",
-        tools: "Tools",
-        phoneNumbers: "Phone Numbers",
-        apiKeys: "API Keys",
-        integrations: "Integrations",
-      };
-      return titles[activeItemId] || "BS Voice Agents";
-    }
-    // For content view, show the selected sub-item name or section name
-    if (activeSubItemId) {
-      const agent = agents.find(a => a.id === activeSubItemId);
-      if (agent) return agent.name;
-      const tool = tools.find(t => t.id === activeSubItemId);
-      if (tool) return tool.name;
-    }
-    return "Details";
-  }, [mobileView, activeItemId, activeSubItemId, agents, tools]);
-
   // Handle mobile back navigation
   const handleMobileBack = useCallback(() => {
     if (mobileView === "content") {
@@ -226,7 +202,6 @@ export function DashboardPage() {
         }
         secondaryOpen={secondaryOpen}
         mobileView={mobileView}
-        mobileTitle={getMobileTitle()}
         onMobileBack={handleMobileBack}
         secondarySidebar={
           <SecondarySidebar
