@@ -16,7 +16,6 @@ export type SidebarProps = {
   activeItemId?: SidebarItemId;
   onSelectItemId?: (itemId: SidebarItemId) => void;
   onLogout?: () => void;
-  onResetData?: () => void;
   signedInAs?: string;
 };
 
@@ -71,13 +70,15 @@ export function Sidebar({
   activeItemId = "overview",
   onSelectItemId,
   onLogout,
-  onResetData,
   signedInAs = "Peter Basting",
 }: SidebarProps) {
   const projectItems: ProjectSelectItem[] = projects;
 
   return (
     <div className="ui-sidebar">
+      <div className="ui-sidebar__logo">
+        <img src="/BSLogoBlack.svg" alt="BS Voice Agents" className="ui-sidebar__logo-img" />
+      </div>
       <div className="ui-sidebar__top">
         <ProjectSelect
           items={projectItems}
@@ -113,11 +114,6 @@ export function Sidebar({
           <span className="ui-sidebar__signed-in-label">Signed in as</span>
           <span className="ui-sidebar__signed-in-name">{signedInAs}</span>
         </div>
-        {onResetData ? (
-          <Button type="button" variant="secondary" onClick={onResetData} className="ui-sidebar__logout">
-            Reset data
-          </Button>
-        ) : null}
         <Button type="button" variant="dashed" onClick={onLogout} className="ui-sidebar__logout">
           Sign out
         </Button>

@@ -360,6 +360,17 @@ body {
   color: rgba(10, 10, 10, 0.6);
 }
 
+.ui-login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.ui-login-logo img {
+  height: 48px;
+  width: auto;
+}
+
 .ui-login-error {
   margin: 12px 0 0;
   font-size: 13px;
@@ -600,6 +611,17 @@ body {
   flex-direction: column;
   padding: 22px 18px;
   gap: 16px;
+}
+
+.ui-sidebar__logo {
+  display: flex;
+  justify-content: flex-start;
+  padding: 8px 0 4px;
+}
+
+.ui-sidebar__logo-img {
+  height: 36px;
+  width: auto;
 }
 
 .ui-sidebar__top {
@@ -2947,7 +2969,6 @@ body {
   right: 0;
   height: 56px;
   background: #ffffff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   z-index: 100;
   align-items: center;
   padding: 0 16px;
@@ -2976,20 +2997,10 @@ body {
   background: rgba(0, 0, 0, 0.08);
 }
 
-.ui-mobile-header__title {
-  flex: 1;
-  font-size: 17px;
-  font-weight: 700;
-  color: rgba(10, 10, 10, 0.88);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* Mobile breakpoint */
 @media (max-width: 768px) {
-  /* Show mobile header */
-  .ui-mobile-header {
+  /* Show mobile header only when back button is needed */
+  .ui-mobile-header.is-visible {
     display: flex;
   }
 
@@ -3010,7 +3021,6 @@ body {
   /* Mobile view states */
   .ui-dashboard-shell.mobile-sidebar .ui-dashboard-shell__sidebar {
     display: block;
-    padding-top: 56px;
   }
 
   .ui-dashboard-shell.mobile-secondary .ui-dashboard-shell__secondary-wrap {

@@ -37,15 +37,19 @@ export function DashboardShell({
     `mobile-${mobileView}`,
   ].filter(Boolean).join(" ");
 
+  const headerClassNames = [
+    "ui-mobile-header",
+    showBackButton ? "is-visible" : "",
+  ].filter(Boolean).join(" ");
+
   return (
     <>
-      <header className="ui-mobile-header">
+      <header className={headerClassNames}>
         {showBackButton && onMobileBack ? (
           <button className="ui-mobile-header__back" onClick={onMobileBack} aria-label="Go back">
             <BackIcon />
           </button>
         ) : null}
-        <span className="ui-mobile-header__title">{mobileTitle}</span>
       </header>
       <div className={classNames}>
         <aside className="ui-dashboard-shell__sidebar">{sidebar}</aside>

@@ -21,7 +21,6 @@ import {
   deleteTemplate,
   duplicateAgent,
   duplicateTemplate,
-  deleteAllUserData,
   subscribeProjects,
   subscribeTemplates,
   subscribeAgents,
@@ -93,9 +92,6 @@ export function DashboardPage() {
   const [createName, setCreateName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [resetError, setResetError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<null | { kind: "agent" | "template"; id: string; name: string }>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -226,14 +222,6 @@ export function DashboardPage() {
               await signOut();
               navigate("/");
             }}
-            onResetData={
-              user
-                ? () => {
-                    setResetError(null);
-                    setResetOpen(true);
-                  }
-                : undefined
-            }
           />
         }
         secondaryOpen={secondaryOpen}
@@ -461,55 +449,6 @@ export function DashboardPage() {
             }}
           />
           {createError ? <div className="ui-inline-error">{createError}</div> : null}
-        </div>
-      </Modal>
-
-      <Modal
-        open={resetOpen}
-        title="Reset data"
-        description="Deletes all your projects, agents, and templates in Firestore."
-        onClose={() => {
-          if (resetting) return;
-          setResetOpen(false);
-        }}
-        footer={
-          <div className="ui-modal__actions">
-            <Button type="button" variant="secondary" onClick={() => setResetOpen(false)} disabled={resetting}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={async () => {
-                if (!user) return;
-                setResetting(true);
-                setResetError(null);
-                try {
-                  await deleteAllUserData(user.uid);
-                  setDbError(null);
-                  setProjects([]);
-                  setAgents([]);
-                  setTemplates([]);
-                  setSelectedProjectId("");
-                  window.localStorage.removeItem(`selectedProjectId:${user.uid}`);
-                  setResetOpen(false);
-                } catch (err) {
-                  const msg = formatFirestoreError(err);
-                  setDbError(msg);
-                  setResetError(msg);
-                } finally {
-                  setResetting(false);
-                }
-              }}
-              disabled={resetting}
-            >
-              {resetting ? "Deleting…" : "Delete everything"}
-            </Button>
-          </div>
-        }
-      >
-        {resetError ? <div className="ui-inline-error">{resetError}</div> : null}
-        <div className="ui-modal__field">
-          <div className="ui-modal__field-label">This cannot be undone.</div>
         </div>
       </Modal>
 

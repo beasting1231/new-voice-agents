@@ -14,6 +14,9 @@ export function LoginPage() {
 
   return (
     <AppShell>
+      <div className="ui-login-logo">
+        <img src="/BSLogoBlack.svg" alt="BS Voice Agents" />
+      </div>
       <Card title="Login">
         <GoogleSignInButton
           onClick={async () => {
